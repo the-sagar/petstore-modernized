@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Create an account · Petstore</title>
+    <link rel="stylesheet" th:href="@{/css/petstore.css}" href="/css/petstore.css">
+</head>
+<body>
+<main>
+    <header><span class="brand">Petstore</span><a th:href="@{/login}" href="/login">Sign in</a></header>
+    <section class="panel">
+        <h1>Create your account</h1>
+        <p>Keep your contact details and preferences in one place.</p>
+        <p class="hint">Fields marked * are required.</p>
+        <p id="message" class="message" role="status" aria-live="polite"></p>
+        <form id="register-form" method="post" th:action="@{/api/auth/register}">
+            <fieldset><legend>Sign-in details</legend><div class="grid">
+                <label>Username * <input name="username" autocomplete="username" required></label>
+                <label>Password * <input name="password" type="password" autocomplete="new-password" required></label>
+            </div></fieldset>
+            <fieldset><legend>Contact details</legend>
+                <div class="grid">
+                    <label>First name * <input name="firstName" type="text" autocomplete="given-name" required></label>
+                    <label>Last name * <input name="lastName" type="text" autocomplete="family-name" required></label>
+                    <label>Email * <input name="email" type="email" autocomplete="email" required></label>
+                    <label>Phone <input name="phone" type="tel" autocomplete="tel"></label>
+                </div>
+            </fieldset>
+            <fieldset><legend>Address</legend>
+                <div class="grid">
+                    <label>Street address * <input name="street1" type="text" autocomplete="address-line1" required></label>
+                    <label>Apartment / unit <input name="street2" type="text" autocomplete="address-line2"></label>
+                    <label>City * <input name="city" type="text" autocomplete="address-level2" required></label>
+                    <label>State / province <input name="stateOrProvince" type="text" autocomplete="address-level1"></label>
+                    <label>Postal code * <input name="postalCode" type="text" autocomplete="postal-code" required></label>
+                    <label>Country * <input name="country" type="text" autocomplete="country-name" required></label>
+                </div>
+            </fieldset>
+            <fieldset><legend>Payment</legend>
+                <div class="grid">
+                    <label>Card type <input name="cardType" type="text" autocomplete="cc-type"></label>
+                    <label>Card number <input name="cardNumber" type="password" autocomplete="off" inputmode="numeric"></label>
+                    <label>Expiry date <input name="expiryDate" type="text" autocomplete="cc-exp" placeholder="MM/YYYY"></label>
+                </div>
+            </fieldset>
+            <fieldset><legend>Preferences</legend>
+                <div class="grid">
+                    <label>Preferred language <input name="languagePreference" type="text" autocomplete="off"></label>
+                    <label class="check"><input name="bannerPreference" type="checkbox"> Show promotional banners</label>
+                    <label class="check"><input name="linkPreference" type="checkbox"> Show preferred links</label>
+                </div>
+            </fieldset>
+            <div class="actions"><button type="submit">Create account</button><a th:href="@{/login}" href="/login">Already registered? Sign in</a></div>
+        </form>
+        <noscript><p>Please enable JavaScript to use this demo.</p></noscript>
+    </section>
+</main>
+<script th:inline="javascript">
+    const loginUrl = /*[[@{/login}]]*/ '/login';
+    const form = document.getElementById('register-form');
+    const message = document.getElementById('message');
+    form.addEventListener('submit', async event => {
+        event.preventDefault();
+        const button = form.querySelector('button');
+        button.disabled = true;
+        message.textContent = '';
+        const payload = {};
+        for (const input of form.querySelectorAll('input:not([type="hidden"])')) {
+            payload[input.name] = input.type === 'checkbox' ? input.checked : input.value;
+        }
+        try {
+            const response = await fetch(form.action, {
+                method: 'POST', credentials: 'same-origin',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            if (response.status === 201) {
+                form.reset();
+                message.className = 'message success';
+                message.textContent = 'Account created. Redirecting to sign in…';
+                window.setTimeout(() => window.location.assign(loginUrl), 1000);
+                return;
+            }
+            message.className = 'message error';
+            message.textContent = response.status === 409 ? 'Username already exists'
+                : response.status === 400 ? 'Please check the required fields and enter a valid email address.'
+                : 'Unable to create your account. Please try again.';
+        } catch {
+            message.className = 'message error';
+            message.textContent = 'Unable to connect. Please try again.';
+        }
+        button.disabled = false;
+    });
+</script>
+</body>
+</html>

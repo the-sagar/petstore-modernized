@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="_csrf" th:content="${_csrf.token}">
+    <meta name="_csrf_header" th:content="${_csrf.headerName}">
+    <title>Your account · Petstore</title>
+    <link rel="stylesheet" th:href="@{/css/petstore.css}" href="/css/petstore.css">
+</head>
+<body>
+<main>
+    <header><span class="brand">Petstore</span><button id="logout" class="secondary" type="button">Log out</button></header>
+    <section class="panel">
+        <h1>Your account</h1>
+        <p>Update your contact details and preferences.</p>
+        <p class="hint">Fields marked * are required.</p>
+        <p id="message" class="message" role="status" aria-live="polite">Loading your account…</p>
+        <form id="account-form" method="post" th:action="@{/api/account}">
+            <fieldset id="account-fields" disabled>
+            <fieldset><legend>Contact details</legend>
+                <div class="grid">
+                    <label>First name * <input name="firstName" type="text" autocomplete="given-name" required></label>
+                    <label>Last name * <input name="lastName" type="text" autocomplete="family-name" required></label>
+                    <label>Email * <input name="email" type="email" autocomplete="email" required></label>
+                    <label>Phone <input name="phone" type="tel" autocomplete="tel"></label>
+                </div>
+            </fieldset>
+            <fieldset><legend>Address</legend>
+                <div class="grid">
+                    <label>Street address * <input name="street1" type="text" autocomplete="address-line1" required></label>
+                    <label>Apartment / unit <input name="street2" type="text" autocomplete="address-line2"></label>
+                    <label>City * <input name="city" type="text" autocomplete="address-level2" required></label>
+                    <label>State / province <input name="stateOrProvince" type="text" autocomplete="address-level1"></label>
+                    <label>Postal code * <input name="postalCode" type="text" autocomplete="postal-code" required></label>
+                    <label>Country * <input name="country" type="text" autocomplete="country-name" required></label>
+                </div>
+            </fieldset>
+            <fieldset><legend>Payment</legend>
+                <p class="hint" id="card-help">Saved card numbers are not shown. Re-enter your card number when saving. Leaving it blank clears the saved number.</p>
+                <div class="grid">
+                    <label>Card type <input name="cardType" type="text" autocomplete="cc-type"></label>
+                    <label>Card number <input name="cardNumber" type="password" autocomplete="off" inputmode="numeric" aria-describedby="card-help"></label>
+                    <label>Expiry date <input name="expiryDate" type="text" autocomplete="cc-exp" placeholder="MM/YYYY"></label>
+                </div>
+            </fieldset>
+            <fieldset><legend>Preferences</legend>
+                <div class="grid">
+                    <label>Preferred language <input name="languagePreference" type="text" autocomplete="off"></label>
+                    <label class="check"><input name="bannerPreference" type="checkbox"> Show promotional banners</label>
+                    <label class="check"><input name="linkPreference" type="checkbox"> Show preferred links</label>
+                </div>
+            </fieldset>
+                <button type="submit">Save changes</button>
+            </fieldset>
+        </form>
+        <noscript><p>Please enable JavaScript to use this demo.</p></noscript>
+    </section>
+</main>
+<script th:inline="javascript">
+    const loginUrl = /*[[@{/login}]]*/ '/login';
+    const logoutUrl = /*[[@{/api/auth/logout}]]*/ '/api/auth/logout';
+    const form = document.getElementById('account-form');
+    const message = document.getElementById('message');
+    const fields = document.getElementById('account-fields');
+    const csrfToken = document.querySelector('meta[name="_csrf"]').content;
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]').content;
+
+    function showMessage(text, type) {
+        message.textContent = text;
+        message.className = 'message ' + type;
+    }
+
+    function populate(account) {
+        for (const input of form.querySelectorAll('input:not([type="hidden"])')) {
+            if (input.name === 'cardNumber') {
+                input.value = '';
+            } else if (input.type === 'checkbox') {
+                input.checked = account[input.name] === true;
+            } else {
+                input.value = account[input.name] ?? '';
+            }
+        }
+    }
+
+    async function loadAccount() {
+        try {
+            const response = await fetch(form.action, {credentials: 'same-origin'});
+            if (response.status === 401) {
+                window.location.assign(loginUrl);
+                return;
+            }
+            if (!response.ok) {
+                showMessage('Unable to load your account. Please reload the page or sign in again.', 'error');
+                return;
+            }
+            populate(await response.json());
+            fields.disabled = false;
+            showMessage('', '');
+        } catch {
+            showMessage('Unable to connect. Please reload the page.', 'error');
+        }
+    }
+
+    form.addEventListener('submit', async event => {
+        event.preventDefault();
+        const payload = {};
+        for (const input of form.querySelectorAll('input:not([type="hidden"])')) {
+            payload[input.name] = input.type === 'checkbox' ? input.checked : input.value;
+        }
+        fields.disabled = true;
+        try {
+            const response = await fetch(form.action, {
+                method: 'PUT', credentials: 'same-origin',
+                headers: {'Content-Type': 'application/json', [csrfHeader]: csrfToken},
+                body: JSON.stringify(payload)
+            });
+            if (response.status === 401) {
+                window.location.assign(loginUrl);
+            } else if (response.status === 200) {
+                populate(await response.json());
+                showMessage('Your account has been updated.', 'success');
+            } else {
+                showMessage(response.status === 400 ? 'Please check the required fields and email address.'
+                    : response.status === 403 ? 'Please reload the page and try again.'
+                    : 'Unable to save your account. Please try again.', 'error');
+            }
+        } catch {
+            showMessage('Unable to connect. Please try again.', 'error');
+        } finally {
+            fields.disabled = false;
+        }
+    });
+
+    document.getElementById('logout').addEventListener('click', async event => {
+        const button = event.currentTarget;
+        button.disabled = true;
+        try {
+            const response = await fetch(logoutUrl, {
+                method: 'POST', credentials: 'same-origin', headers: {[csrfHeader]: csrfToken}
+            });
+            if (response.status === 204 || response.status === 401) {
+                window.location.assign(loginUrl);
+            } else {
+                showMessage('Unable to log out. Please reload the page and try again.', 'error');
+            }
+        } catch {
+            showMessage('Unable to connect. Please try again.', 'error');
+        } finally {
+            button.disabled = false;
+        }
+    });
+
+    loadAccount();
+</script>
+</body>
+</html>
