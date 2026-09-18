@@ -16,12 +16,19 @@ import com.mdb.petstore.identity.model.Role;
 import com.mdb.petstore.identity.model.User;
 import com.mdb.petstore.identity.repository.UserRepository;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 public class RegistrationService {
+
+    private static final Logger log = LoggerFactory.getLogger(RegistrationService.class);
 
     private final UserRepository userRepository;
     private final CustomerRepository customerRepository;
@@ -37,11 +44,15 @@ public class RegistrationService {
     @Transactional
     public User register(RegisterRequest request) {
         String normalizedUsername = request.getUsername().trim().toLowerCase(Locale.ROOT);
+        log.debug("Registration request received for username={}", normalizedUsername);
+        log.debug("Checking username availability for username={}", normalizedUsername);
         if (userRepository.existsByUsername(normalizedUsername)) {
+            log.warn("Customer registration rejected: username already exists, username={}", normalizedUsername);
             throw new IllegalArgumentException("Username already exists: " + normalizedUsername);
         }
 
         Instant registrationTime = Instant.now();
+        log.debug("Building customer aggregate for username={}", normalizedUsername);
 
         Address address = new Address();
         address.setStreet1(request.getStreet1());
@@ -78,7 +89,9 @@ public class RegistrationService {
         customer.setCreatedAt(registrationTime);
         customer.setUpdatedAt(registrationTime);
         Customer savedCustomer = customerRepository.save(customer);
+        log.debug("Customer persistence completed within registration transaction, customerId={}", savedCustomer.getId());
 
+        log.debug("Building identity record for username={}", normalizedUsername);
         User user = new User();
         user.setUsername(normalizedUsername);
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
@@ -88,6 +101,20 @@ public class RegistrationService {
         user.setCreatedAt(registrationTime);
         user.setUpdatedAt(registrationTime);
 
-        return userRepository.save(user);
+        User savedUser;
+        try {
+            savedUser = userRepository.save(user);
+        } catch (DuplicateKeyException exception) {
+            log.warn("Customer registration rejected: username already exists, username={}", normalizedUsername);
+            throw exception;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                log.info("Registration transaction completed for username={} userId={} customerId={}",
+                        normalizedUsername, savedUser.getId(), savedCustomer.getId());
+            }
+        });
+        return savedUser;
     }
 }

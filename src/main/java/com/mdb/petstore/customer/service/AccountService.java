@@ -10,12 +10,16 @@ import com.mdb.petstore.customer.repository.CustomerRepository;
 import com.mdb.petstore.identity.model.User;
 import com.mdb.petstore.identity.repository.UserRepository;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class AccountService {
+
+    private static final Logger log = LoggerFactory.getLogger(AccountService.class);
 
     private final UserRepository userRepository;
     private final CustomerRepository customerRepository;
@@ -26,10 +30,15 @@ public class AccountService {
     }
 
     public AccountResponse getAccount(String authenticatedUsername) {
-        return toResponse(findCustomer(authenticatedUsername));
+        Customer customer = findCustomer(authenticatedUsername);
+        AccountResponse response = toResponse(customer);
+        log.debug("Customer account retrieved for customerId={}", customer.getId());
+        return response;
     }
 
     public AccountResponse updateAccount(String authenticatedUsername, UpdateAccountRequest request) {
+        String username = authenticatedUsername.trim().toLowerCase(Locale.ROOT);
+        log.debug("Account update started for username={}", username);
         Customer customer = findCustomer(authenticatedUsername);
         var contact = customer.getAccount().getContactInfo();
         contact.setFirstName(request.getFirstName());
@@ -56,18 +65,24 @@ public class AccountService {
         profile.setLinkPreference(request.isLinkPreference());
 
         customer.setUpdatedAt(Instant.now());
-        return toResponse(customerRepository.save(customer));
+        AccountResponse response = toResponse(customerRepository.save(customer));
+        log.info("Customer account update completed for username={} customerId={}", username, customer.getId());
+        return response;
     }
 
     private Customer findCustomer(String authenticatedUsername) {
         String username = authenticatedUsername.trim().toLowerCase(Locale.ROOT);
+        log.debug("Account lookup started for username={}", username);
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
         if (user.getCustomerId() == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found");
         }
-        return customerRepository.findById(user.getCustomerId())
+        log.debug("Account identity resolved for username={} customerId={}", username, user.getCustomerId());
+        Customer customer = customerRepository.findById(user.getCustomerId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+        log.debug("Customer document loaded for customerId={}", customer.getId());
+        return customer;
     }
 
     private AccountResponse toResponse(Customer customer) {

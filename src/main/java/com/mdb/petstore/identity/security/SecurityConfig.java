@@ -1,6 +1,7 @@
 package com.mdb.petstore.identity.security;
 
 import java.util.Set;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 import com.mdb.petstore.identity.dto.LoginResponse;
@@ -8,6 +9,8 @@ import com.mdb.petstore.identity.dto.LoginResponse;
 import jakarta.servlet.http.HttpServletResponse;
 import tools.jackson.databind.ObjectMapper;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -27,6 +30,8 @@ import org.springframework.security.web.servlet.util.matcher.PathPatternRequestM
 
 @Configuration
 public class SecurityConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
@@ -60,17 +65,22 @@ public class SecurityConfig {
                             .map(GrantedAuthority::getAuthority)
                             .filter(authority -> authority.startsWith("ROLE_"))
                             .collect(Collectors.toSet());
+                    log.info("Authentication succeeded for username={} roles={}", authentication.getName(), roles);
                     response.setStatus(HttpServletResponse.SC_OK);
                     response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                     objectMapper.writeValue(response.getOutputStream(),
                             new LoginResponse(authentication.getName(), roles));
                 })
                 .failureHandler((request, response, exception) -> {
+                    String attemptedUsername = request.getParameter("username");
+                    String username = attemptedUsername == null ? "" : attemptedUsername.trim().toLowerCase(Locale.ROOT);
+                    log.warn("Authentication failed for username={}", username);
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                     response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                     objectMapper.writeValue(response.getOutputStream(), "Invalid username or password");
                 }));
         var trustResolver = new AuthenticationTrustResolverImpl();
+        var logoutSuccessHandler = new HttpStatusReturningLogoutSuccessHandler(HttpStatus.NO_CONTENT);
         http.logout(logout -> logout
                 // LogoutFilter runs before authorization, so require authentication in its matcher.
                 .logoutRequestMatcher(request -> logoutMatcher.matches(request)
@@ -78,7 +88,10 @@ public class SecurityConfig {
                 .invalidateHttpSession(true)
                 .clearAuthentication(true)
                 .deleteCookies("JSESSIONID")
-                .logoutSuccessHandler(new HttpStatusReturningLogoutSuccessHandler(HttpStatus.NO_CONTENT)));
+                .logoutSuccessHandler((request, response, authentication) -> {
+                    logoutSuccessHandler.onLogoutSuccess(request, response, authentication);
+                    log.info("Logout completed for username={}", authentication.getName());
+                }));
         return http.build();
     }
 
