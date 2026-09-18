@@ -305,7 +305,7 @@ The detailed parity matrix is maintained in:
 
 ## Documentation
 
-Detailed analysis and modernization notes are maintained under [`docs/`](docs/).
+Detailed analysis and modernization notes are maintained under `docs/`.
 
 - [Legacy System Overview](docs/01-legacy-system-overview.md)
 - [Account and Authentication Flow](docs/02-account-auth-flow.md)
