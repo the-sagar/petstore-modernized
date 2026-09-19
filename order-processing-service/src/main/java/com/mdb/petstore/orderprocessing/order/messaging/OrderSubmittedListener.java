@@ -1,15 +1,11 @@
 package com.mdb.petstore.orderprocessing.order.messaging;
 
-import com.mdb.petstore.orderprocessing.order.model.Order;
 import com.mdb.petstore.orderprocessing.order.model.OrderStatus;
 import com.mdb.petstore.orderprocessing.order.repository.OrderRepository;
 import com.mdb.petstore.orderprocessing.order.service.ApprovalPolicy;
+import com.mdb.petstore.orderprocessing.order.service.OrderApprovalService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.jms.annotation.JmsListener;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
@@ -19,14 +15,14 @@ import tools.jackson.databind.ObjectMapper;
 public class OrderSubmittedListener {
     private static final Logger log = LoggerFactory.getLogger(OrderSubmittedListener.class);
     private final OrderRepository orders;
-    private final MongoTemplate mongo;
+    private final OrderApprovalService approval;
     private final ApprovalPolicy policy;
     private final ObjectMapper mapper;
 
-    public OrderSubmittedListener(OrderRepository orders, MongoTemplate mongo, ApprovalPolicy policy,
+    public OrderSubmittedListener(OrderRepository orders, OrderApprovalService approval, ApprovalPolicy policy,
             ObjectMapper mapper) {
         this.orders = orders;
-        this.mongo = mongo;
+        this.approval = approval;
         this.policy = policy;
         this.mapper = mapper;
     }
@@ -59,12 +55,6 @@ public class OrderSubmittedListener {
             log.info("Order retained pending orderId={} locale={} total={}", id, order.locale(), order.totalPrice());
             return;
         }
-        // Compare-and-set prevents concurrent deliveries from overwriting a newer status.
-        // Mongo failures escape so the transacted JMS listener rolls back delivery.
-        var result = mongo.updateFirst(Query.query(Criteria.where("_id").is(id).and("status").is(OrderStatus.PENDING)),
-                Update.update("status", OrderStatus.APPROVED), Order.class);
-        if (result.getModifiedCount() == 1) {
-            log.info("Order automatically approved orderId={} locale={} total={}", id, order.locale(), order.totalPrice());
-        }
+        approval.approve(order);
     }
 }

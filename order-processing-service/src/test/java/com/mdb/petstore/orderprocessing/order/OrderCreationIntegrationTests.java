@@ -286,6 +286,14 @@ class OrderCreationIntegrationTests {
                 new OrderSubmitted(id)));
     }
 
+    @Test
+    void callerCannotSetInitialShippedQuantity() throws Exception {
+        createOrder(REQUEST.replace("\"quantity\":3", "\"quantity\":3,\"quantityShipped\":3"));
+        var order = orders.findAll().getFirst();
+        assertEquals(OrderStatus.PENDING, order.status());
+        assertTrue(order.lineItems().stream().allMatch(line -> line.quantityShipped() == 0));
+    }
+
     private void rejected(String body) throws Exception {
         mvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest());

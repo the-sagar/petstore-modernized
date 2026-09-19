@@ -9,6 +9,8 @@ import com.mdb.petstore.orderprocessing.order.model.Order;
 import com.mdb.petstore.orderprocessing.order.model.OrderStatus;
 import com.mdb.petstore.orderprocessing.order.repository.OrderRepository;
 import com.mdb.petstore.orderprocessing.order.service.ApprovalPolicy;
+import com.mdb.petstore.orderprocessing.order.service.OrderApprovalService;
+import com.mdb.petstore.orderprocessing.order.messaging.InventoryRequestedPublisher;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -21,7 +23,7 @@ import static org.mockito.Mockito.*;
 class OrderSubmittedListenerTests {
     private final OrderRepository orders = mock(OrderRepository.class);
     private final MongoTemplate mongo = mock(MongoTemplate.class);
-    private final OrderSubmittedListener listener = new OrderSubmittedListener(orders, mongo,
+    private final OrderSubmittedListener listener = new OrderSubmittedListener(orders, new OrderApprovalService(mongo, mock(InventoryRequestedPublisher.class)),
             new ApprovalPolicy(), new JsonMapper());
 
     @Test
