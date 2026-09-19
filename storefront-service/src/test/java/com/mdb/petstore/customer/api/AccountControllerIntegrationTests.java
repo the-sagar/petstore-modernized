@@ -66,7 +66,7 @@ class AccountControllerIntegrationTests {
         User user = registerCustomer();
         mockMvc.perform(get("/api/account").session(login(user)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", aMapWithSize(15)))
+                .andExpect(jsonPath("$", aMapWithSize(16)))
                 .andExpect(jsonPath("$.firstName").value("Original"))
                 .andExpect(jsonPath("$.lastName").value("Customer"))
                 .andExpect(jsonPath("$.email").value(user.getUsername() + "@example.com"))
@@ -118,12 +118,14 @@ class AccountControllerIntegrationTests {
         stored.put("country", address.getCountry());
         var card = after.getAccount().getCreditCard();
         stored.put("cardType", card.getCardType());
-        stored.put("cardNumber", card.getCardNumber());
+        stored.put("last4", card.getLast4());
         stored.put("expiryDate", card.getExpiryDate());
         var profile = after.getProfile();
         stored.put("languagePreference", profile.getLanguagePreference());
         stored.put("bannerPreference", profile.isBannerPreference());
         stored.put("linkPreference", profile.isLinkPreference());
+        update.remove("cardNumber");
+        update.put("last4", "4444");
         assertEquals(update, stored);
     }
 

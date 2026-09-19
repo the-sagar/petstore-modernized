@@ -41,6 +41,7 @@ public class RegisterRequest {
 
     private String cardType;
 
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
     private String cardNumber;
 
     private String expiryDate;

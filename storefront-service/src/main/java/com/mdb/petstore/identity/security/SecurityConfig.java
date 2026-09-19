@@ -41,6 +41,8 @@ public class SecurityConfig {
         provider.setPasswordEncoder(passwordEncoder);
         http.authenticationProvider(provider);
         http.authorizeHttpRequests(authorize -> authorize
+                .requestMatchers("/supplier", "/supplier/**", "/api/supplier", "/api/supplier/**").hasRole("SUPPLIER")
+                .requestMatchers("/admin", "/admin/**", "/api/admin", "/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/cart", "/api/cart/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/catalog/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/shop", "/shop/**", "/cart").permitAll()
@@ -48,12 +50,14 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
                 .anyRequest().authenticated());
         http.csrf(csrf -> csrf.ignoringRequestMatchers("/api/auth/register", "/api/auth/login"));
+        var supplierMatcher = PathPatternRequestMatcher.withDefaults().matcher("/api/supplier/**");
+        var adminMatcher = PathPatternRequestMatcher.withDefaults().matcher("/api/admin/**");
         var accountMatcher = PathPatternRequestMatcher.withDefaults().matcher("/api/account");
         var checkoutMatcher = PathPatternRequestMatcher.withDefaults().matcher("/api/checkout");
         var logoutMatcher = PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.POST, "/api/auth/logout");
         var loginEntryPoint = new LoginUrlAuthenticationEntryPoint("/login");
         http.exceptionHandling(exceptions -> exceptions.authenticationEntryPoint((request, response, exception) -> {
-            if (accountMatcher.matches(request) || logoutMatcher.matches(request) || checkoutMatcher.matches(request)) {
+            if (supplierMatcher.matches(request) || adminMatcher.matches(request) || accountMatcher.matches(request) || logoutMatcher.matches(request) || checkoutMatcher.matches(request)) {
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             } else {
                 loginEntryPoint.commence(request, response, exception);

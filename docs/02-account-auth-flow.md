@@ -58,9 +58,9 @@ Required contact/address fields and email syntax are validated. Country and stat
 
 ## Payment security: partially corrected
 
-The customer account still stores `cardType`, raw `cardNumber`, and `expiryDate`. The account page does not display the saved number; when saving, leaving its card-number input blank clears the saved value. Registration permits missing payment fields, but checkout requires usable saved payment display information.
+The customer account stores only `cardType`, `last4`, and `expiryDate`. Registration/account requests accept a number transiently, validate its format and derive last4. Blank account input preserves existing last4; nonblank input replaces it. The page displays the saved type and last four digits while keeping the number input empty. Registration permits missing payment metadata, but checkout requires usable saved display information.
 
-Checkout derives only `cardType` and `last4` for the order request. Raw card data does not cross into Order Processing. Removing/tokenizing raw Storefront storage remains an explicit security-hardening follow-up; this is not a PCI-compliant payment integration.
+Checkout reads stored `cardType` and `last4` directly. A startup Mongo migration derives last4 from valid legacy numbers and unsets cardNumber atomically per document. No full number is persisted by current code or sent to Order Processing. This demo performs no payment authorization/tokenization and claims no PCI compliance.
 
 ## Evidence and scope
 

@@ -39,6 +39,7 @@
                 </div>
             </fieldset>
             <fieldset><legend>Payment</legend>
+                <p class="hint">Only card type, last four digits and expiry are saved. This demo does not authorize payments.</p>
                 <div class="grid">
                     <label>Card type <input name="cardType" type="text" autocomplete="cc-type"></label>
                     <label>Card number <input name="cardNumber" type="password" autocomplete="off" inputmode="numeric"></label>
@@ -85,7 +86,7 @@
             }
             message.className = 'message error';
             message.textContent = response.status === 409 ? 'Username already exists'
-                : response.status === 400 ? 'Please check the required fields and enter a valid email address.'
+                : response.status === 400 ? 'Please check the required fields, email address and card number format.'
                 : 'Unable to create your account. Please try again.';
         } catch {
             message.className = 'message error';

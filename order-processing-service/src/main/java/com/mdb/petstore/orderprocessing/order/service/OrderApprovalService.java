@@ -11,7 +11,7 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 
-/** Shared approval boundary for automatic approval and a future authorized manual path. */
+/** Shared approval boundary for automatic approval and authorized manual approval. */
 @Service
 public class OrderApprovalService {
     private static final Logger log = LoggerFactory.getLogger(OrderApprovalService.class);

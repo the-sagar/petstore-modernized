@@ -65,7 +65,7 @@ Storefront retains its cart until Order Processing returns a valid HTTP 201 resp
 
 A timeout or lost response does not prove the remote write failed: Order Processing may already have persisted the order. Cross-request checkout idempotency/reconciliation is not implemented, so retries are not claimed to be exactly-once. See [order processing](07-order-processing.md).
 
-Only card type and last4 cross this boundary. Raw card storage still exists in Storefront and is an outstanding security-hardening item.
+Only card type and last4 cross this boundary. Storefront persists display metadata (card type, last4, expiry), accepts full numbers only transiently, and removes legacy cardNumber fields on startup. This demo performs no payment authorization and makes no PCI-compliance claim.
 
 ## Why three services
 

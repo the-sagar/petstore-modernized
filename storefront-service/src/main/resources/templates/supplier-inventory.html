@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="_csrf" th:content="${_csrf.token}">
+    <meta name="_csrf_header" th:content="${_csrf.headerName}">
+    <title>Supplier inventory · Petstore</title>
+    <link rel="stylesheet" href="/css/petstore.css" th:href="@{/css/petstore.css}">
+    <script defer src="/assets/supplier.js" th:src="@{/assets/supplier.js}"></script>
+</head>
+<body data-supplier-page="inventory">
+<header th:replace="~{fragments/storefront :: navigation}"></header>
+<main class="storefront">
+    <h1>Supplier inventory</h1>
+    <p>Set the exact current quantity, not additional stock. Positive stock automatically retries pending fulfilments, so the returned quantity may be lower.</p>
+    <section class="panel">
+        <div class="actions">
+            <label>Filter item IDs <input id="inventory-filter" type="search" placeholder="EST-15"></label>
+            <button id="refresh-supplier" type="button">Refresh inventory</button>
+        </div>
+        <p id="supplier-message" class="message" role="status" aria-live="polite"></p>
+        <div class="table-scroll">
+            <table id="supplier-inventory-table">
+                <thead><tr><th>Item ID</th><th>Current quantity</th><th>Updated</th><th>New quantity</th><th>Action</th></tr></thead>
+                <tbody id="inventory-rows"></tbody>
+            </table>
+        </div>
+    </section>
+    <noscript><p>Please enable JavaScript to use Supplier tools.</p></noscript>
+</main>
+</body>
+</html>

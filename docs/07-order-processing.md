@@ -86,7 +86,7 @@ The lifecycle enum contains `PENDING`, `APPROVED`, `DENIED`, `SHIPPED_PART`, and
 
 The legacy hard-coded checkout card is intentionally not reproduced. Storefront derives display information from the authenticated customer's saved account. No raw card number/PAN, CVV, or expiry credentials form part of the inter-service order request. Order Processing persists only `cardType` and `last4` for payment.
 
-Storefront still persists a raw account card number. Removing/tokenizing that storage is a separate, unfinished security task. Neither service performs payment authorization or claims PCI compliance.
+Storefront persists only cardType, last4 and expiryDate; checkout uses stored last4 directly. Full numbers are transient write-only registration/account input, and startup migration removes legacy cardNumber fields. Neither service performs payment authorization/tokenization or claims PCI compliance.
 
 ## Failure handling
 

@@ -39,7 +39,8 @@
                 </div>
             </fieldset>
             <fieldset><legend>Payment</legend>
-                <p class="hint" id="card-help">Saved card numbers are not shown. Re-enter your card number when saving. Leaving it blank clears the saved number.</p>
+                <p class="hint" id="card-help">Full card numbers are not stored. Enter a card number only to replace the saved card metadata. Leaving it blank keeps the saved last four digits. This demo does not authorize payments.</p>
+                <p id="saved-card"></p>
                 <div class="grid">
                     <label>Card type <input name="cardType" type="text" autocomplete="cc-type"></label>
                     <label>Card number <input name="cardNumber" type="password" autocomplete="off" inputmode="numeric" aria-describedby="card-help"></label>
@@ -74,6 +75,9 @@
     }
 
     function populate(account) {
+        document.getElementById('saved-card').textContent = account.last4
+            ? `Saved card: ${account.cardType || 'Card'} ending in ${account.last4}`
+            : 'No saved card metadata.';
         for (const input of form.querySelectorAll('input:not([type="hidden"])')) {
             if (input.name === 'cardNumber') {
                 input.value = '';
@@ -123,7 +127,7 @@
                 populate(await response.json());
                 showMessage('Your account has been updated.', 'success');
             } else {
-                showMessage(response.status === 400 ? 'Please check the required fields and email address.'
+                showMessage(response.status === 400 ? 'Please check the required fields, email address and card number format.'
                     : response.status === 403 ? 'Please reload the page and try again.'
                     : 'Unable to save your account. Please try again.', 'error');
             }

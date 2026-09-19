@@ -15,7 +15,7 @@ Parity is measured by business outcome, not reproduction of EJB/JSP/CMP implemen
 | Card type/expiry mapping | Positional mapping defect | Explicit field mapping | Implemented correction |
 | Country/region semantics | Independent, weakly validated fields | Required-field/email checks; independent text country/region | Partially implemented; semantic validation outstanding |
 | Expiry input | Historical choices | Free-text input; no current-date expiry validation | Partially implemented |
-| Payment storage | Raw account card data | Raw Storefront number remains; only display fields reach orders | Partially implemented; storage hardening deferred |
+| Payment storage | Raw account card data | Display metadata only; startup migration removes legacy cardNumber; only cardType/last4 reach orders | Implemented display-only storage; no real payment authorization |
 
 ## Catalog / search
 

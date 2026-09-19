@@ -12,6 +12,7 @@ public record AccountResponse(
         String postalCode,
         String country,
         String cardType,
+        String last4,
         String expiryDate,
         String languagePreference,
         boolean bannerPreference,

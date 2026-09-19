@@ -7,6 +7,7 @@ import com.mdb.petstore.customer.dto.AccountResponse;
 import com.mdb.petstore.customer.dto.UpdateAccountRequest;
 import com.mdb.petstore.customer.model.Customer;
 import com.mdb.petstore.customer.repository.CustomerRepository;
+import com.mdb.petstore.customer.payment.CardDisplayMetadata;
 import com.mdb.petstore.identity.model.User;
 import com.mdb.petstore.identity.repository.UserRepository;
 
@@ -56,7 +57,8 @@ public class AccountService {
 
         var card = customer.getAccount().getCreditCard();
         card.setCardType(request.getCardType());
-        card.setCardNumber(request.getCardNumber());
+        String last4 = CardDisplayMetadata.last4(request.getCardNumber());
+        if (last4 != null) card.setLast4(last4);
         card.setExpiryDate(request.getExpiryDate());
 
         var profile = customer.getProfile();
@@ -93,7 +95,7 @@ public class AccountService {
         return new AccountResponse(
                 contact.getFirstName(), contact.getLastName(), contact.getEmail(), contact.getPhone(),
                 address.getStreet1(), address.getStreet2(), address.getCity(), address.getStateOrProvince(),
-                address.getPostalCode(), address.getCountry(), card.getCardType(), card.getExpiryDate(),
+                address.getPostalCode(), address.getCountry(), card.getCardType(), card.getLast4(), card.getExpiryDate(),
                 profile.getLanguagePreference(), profile.isBannerPreference(), profile.isLinkPreference());
     }
 }

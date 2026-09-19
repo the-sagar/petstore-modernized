@@ -52,6 +52,17 @@ public class PageController {
         return "register";
     }
 
+    @GetMapping("/supplier/inventory")
+    public String supplierInventory() { return "supplier-inventory"; }
+
+    @GetMapping("/supplier/orders")
+    public String supplierOrders() { return "supplier-orders"; }
+
+    @GetMapping("/admin/orders")
+    public String adminOrders() {
+        return "admin-orders";
+    }
+
     @GetMapping("/account")
     public String account() {
         log.debug("Account page requested");

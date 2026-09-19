@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="_csrf" th:content="${_csrf.token}">
+    <meta name="_csrf_header" th:content="${_csrf.headerName}">
+    <title>Manage orders · Petstore</title>
+    <link rel="stylesheet" href="/css/petstore.css" th:href="@{/css/petstore.css}">
+    <script defer src="/assets/admin-orders.js" th:src="@{/assets/admin-orders.js}"></script>
+</head>
+<body>
+<header th:replace="~{fragments/storefront :: navigation}"></header>
+<main class="storefront">
+    <h1>Manage orders</h1>
+    <section class="panel">
+        <form id="admin-filter-form" class="actions">
+            <label>Status
+                <select id="order-status" name="status">
+                    <option value="PENDING" selected>Pending</option>
+                    <option value="APPROVED">Approved</option>
+                    <option value="DENIED">Denied</option>
+                    <option value="SHIPPED_PART">Partially shipped</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="">All</option>
+                </select>
+            </label>
+            <button type="submit" id="refresh-orders">Refresh</button>
+        </form>
+        <p id="admin-message" class="message" role="status" aria-live="polite"></p>
+        <div class="table-scroll">
+            <table id="admin-orders-table">
+                <thead><tr><th>Order ID</th><th>Customer</th><th>Created</th><th>Locale</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead>
+                <tbody id="admin-order-rows"></tbody>
+            </table>
+        </div>
+        <noscript><p>Please enable JavaScript to manage orders.</p></noscript>
+    </section>
+</main>
+</body>
+</html>

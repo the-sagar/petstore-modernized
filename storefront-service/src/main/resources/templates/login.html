@@ -24,6 +24,8 @@
     </section>
 </main>
 <script th:inline="javascript">
+    const supplierInventoryUrl = /*[[@{/supplier/inventory}]]*/ '/supplier/inventory';
+    const adminOrdersUrl = /*[[@{/admin/orders}]]*/ '/admin/orders';
     const shopUrl = /*[[@{/shop}]]*/ '/shop';
     const form = document.getElementById('login-form');
     const message = document.getElementById('message');
@@ -39,7 +41,15 @@
             });
             if (response.status === 200) {
                 form.elements.password.value = '';
-                window.location.assign(shopUrl);
+                const login = await response.json();
+                // Deterministic multi-role precedence: ADMIN, then SUPPLIER, then Shop.
+                if (Array.isArray(login.roles) && login.roles.includes('ROLE_ADMIN')) {
+                    window.location.assign(adminOrdersUrl);
+                } else if (Array.isArray(login.roles) && login.roles.includes('ROLE_SUPPLIER')) {
+                    window.location.assign(supplierInventoryUrl);
+                } else {
+                    window.location.assign(shopUrl);
+                }
             } else {
                 message.className = 'message error';
                 message.textContent = response.status === 401

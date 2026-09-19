@@ -23,7 +23,7 @@ This repository is AI-assisted implementation, not a claim that every line was w
 | Checkout reliability | Implemented response validation and failure tests | Developer required cart clearing only after a successful, valid order-creation acknowledgement |
 | Customer UI | Built Thymeleaf/vanilla JS pages and page tests | Developer constrained the UI to existing APIs, CSRF protection, and no framework/business-logic duplication |
 
-The payment boundary correction does **not** complete payment security: raw card storage remains in the Storefront customer model and is explicitly tracked for hardening.
+A later bounded hardening step removes raw Storefront card persistence: only display metadata remains, with an idempotent legacy-data migration and raw-BSON assertions. This does not implement tokenization, payment authorization or establish PCI compliance.
 
 ## Verification rather than blind acceptance
 

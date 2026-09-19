@@ -23,7 +23,7 @@ The intention is not to catalog every defect in the legacy codebase. It is to id
 | Limited observability | Improved for implemented slices | SLF4J business-event logs; future async stages have no implementation/logging yet |
 | Deployment resets data | Intentionally not reproduced | Persistent Mongo volume; catalog seeding skips existing data rather than resetting it |
 | Hard-coded checkout payment | Partially corrected | Payment display data comes from the authenticated customer's account; no hard-coded card sent to orders |
-| Raw Storefront card persistence | Still outstanding | Raw number remains in customer storage; tokenization/storage hardening is not complete |
+| Raw Storefront card persistence | Corrected | Display metadata only; startup migration removes legacy cardNumber fields. No payment authorization/tokenization is implemented |
 
 “Corrected” applies to the migrated implementation, not to patches of the legacy runtime. Remaining semantic-validation and payment gaps are not counted as completed security work.
 
@@ -258,9 +258,9 @@ Targeted legacy source inspection confirmed that the Storefront constructed an o
 
 **Partially corrected:** modern checkout derives display information from the authenticated customer's saved account. Order Processing accepts/persists only `cardType` and four-digit `last4`, rejecting raw payment fields. It does not perform payment authorization.
 
-## Current security-hardening gap — Raw Storefront card storage
+## Corrected — Raw Storefront card storage
 
-The modern Storefront customer model still persists the raw card number. Omitting it from account responses and redacting the inter-service order contract does not remove this at-rest exposure. Payment persistence redesign/tokenization is **still outstanding**. No PCI-compliance claim is made.
+Storefront now persists only card type, last4 and expiry metadata. Full numbers are transient write-only input; a startup Mongo migration removes legacy cardNumber fields. Blank account input preserves last4. This removes raw-number persistence from current customer documents; it is not tokenization or payment authorization. Historical backups are not rewritten. No PCI-compliance claim is made.
 
 ---
 

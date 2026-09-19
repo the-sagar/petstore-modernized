@@ -65,11 +65,11 @@ public class CheckoutService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Customer checkout information unavailable");
         }
         var card = account.getCreditCard();
-        String number = card.getCardNumber() == null ? "" : card.getCardNumber().replaceAll("[ -]", "");
-        if (card.getCardType() == null || card.getCardType().isBlank() || !number.matches("[0-9]{4,19}")) {
+        String last4 = card.getLast4();
+        if (card.getCardType() == null || card.getCardType().isBlank() || last4 == null || !last4.matches("[0-9]{4}")) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Payment display information unavailable");
         }
-        var payment = new CreateOrderRequest.Payment(card.getCardType(), number.substring(number.length() - 4));
+        var payment = new CreateOrderRequest.Payment(card.getCardType(), last4);
         var orderRequest = new CreateOrderRequest(customer.getId(), user.getUsername(),
                 account.getContactInfo().getEmail(), language, request.billingInfo(), request.shippingInfo(), payment, lines);
         log.info("Checkout started customerId={} lineCount={}", customer.getId(), lines.size());

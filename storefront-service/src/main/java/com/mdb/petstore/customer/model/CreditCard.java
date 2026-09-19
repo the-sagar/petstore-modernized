@@ -1,9 +1,10 @@
 package com.mdb.petstore.customer.model;
 
+/** Display metadata only; this demo does not authorize payments. */
 public class CreditCard {
 
     private String cardType;
-    private String cardNumber;
+    private String last4;
     private String expiryDate;
 
     public CreditCard() {
@@ -17,12 +18,12 @@ public class CreditCard {
         this.cardType = cardType;
     }
 
-    public String getCardNumber() {
-        return cardNumber;
+    public String getLast4() {
+        return last4;
     }
 
-    public void setCardNumber(String cardNumber) {
-        this.cardNumber = cardNumber;
+    public void setLast4(String last4) {
+        this.last4 = last4;
     }
 
     public String getExpiryDate() {

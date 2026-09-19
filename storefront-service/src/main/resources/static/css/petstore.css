@@ -78,3 +78,12 @@ td button { display: block; width: 100%; white-space: nowrap; padding: 8px 12px;
     .locale-control { width: 100%; }
     th, td { padding: 10px 6px; }
 }
+
+/* Keep the optional admin navigation usable on narrow screens. */
+.site-header nav:has(#admin-orders-link) { align-items: center; flex-wrap: wrap; }
+#admin-logout-form { margin: 0; }
+#admin-nav-message { font-size: .85rem; }
+
+.site-header nav:has(#supplier-inventory-link) { align-items: center; flex-wrap: wrap; }
+#supplier-inventory-table input { min-width: 6rem; max-width: 9rem; }
+.supplier-line-details { margin: 0.5rem 0; }

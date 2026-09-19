@@ -2,13 +2,21 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
 <header th:fragment="navigation" class="site-header">
-    <a class="brand" href="/shop" th:href="@{/shop}" data-locale-link>Petstore</a>
+    <a class="brand" href="/shop" th:href="${isSupplier} ? @{/supplier/inventory} : @{/shop}" data-locale-link>Petstore</a>
     <nav aria-label="Main navigation">
-        <a href="/shop" th:href="@{/shop}" data-locale-link>Shop</a>
-        <a href="/cart" th:href="@{/cart}" data-locale-link>Cart</a>
-        <a href="/account" th:href="@{/account}" data-locale-link>Account</a>
+        <a th:unless="${isSupplier}" href="/shop" th:href="@{/shop}" data-locale-link>Shop</a>
+        <a th:unless="${isSupplier}" href="/cart" th:href="@{/cart}" data-locale-link>Cart</a>
+        <a th:unless="${isAdmin or isSupplier}" href="/account" th:href="@{/account}" data-locale-link>Account</a>
+        <a th:if="${isAdmin}" id="admin-orders-link" th:href="@{/admin/orders}" href="/admin/orders">Orders</a>
+        <a th:if="${isSupplier}" id="supplier-inventory-link" th:href="@{/supplier/inventory}">Inventory</a>
+        <a th:if="${isSupplier}" id="supplier-orders-link" th:href="@{/supplier/orders}">Fulfilments</a>
+        <form th:if="${isAdmin or isSupplier}" id="admin-logout-form" method="post" th:action="@{/api/auth/logout}">
+            <button type="submit">Logout</button>
+        </form>
+        <span th:if="${isAdmin or isSupplier}" id="admin-nav-message" role="status"></span>
     </nav>
-    <label class="locale-control">Catalog locale
+    <script th:if="${isAdmin or isSupplier}" defer th:src="@{/assets/admin-navigation.js}" src="/assets/admin-navigation.js"></script>
+    <label th:unless="${isSupplier}" class="locale-control">Catalog locale
         <select id="locale-select" aria-label="Catalog locale">
             <option value="en-US">English (US)</option>
             <option value="ja-JP">日本語</option>

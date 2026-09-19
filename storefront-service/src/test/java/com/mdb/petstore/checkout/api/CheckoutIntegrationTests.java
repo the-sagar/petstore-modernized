@@ -19,6 +19,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -85,10 +86,12 @@ class CheckoutIntegrationTests {
     }
 
     @Autowired private MockMvc mvc;
-    @Autowired private MockRestServiceServer server;
+    @Autowired @Qualifier("orderServer") private MockRestServiceServer server;
     @Autowired private ObjectMapper mapper;
     @Autowired private RegistrationService registration;
     @Autowired private ItemRepository items;
+    @Autowired private com.mdb.petstore.customer.repository.CustomerRepository customers;
+    @Autowired private MongoTemplate mongo;
 
     private MockHttpSession session;
     private User user;
@@ -146,12 +149,31 @@ class CheckoutIntegrationTests {
     }
 
     @Test
+    void missingPaymentMetadataRejectsCheckoutWithoutClearingCart() throws Exception {
+        putItem("EST-1", 1);
+        var original = cart();
+        var customer = customers.findById(user.getCustomerId()).orElseThrow();
+        customer.getAccount().getCreditCard().setLast4(null);
+        customers.save(customer);
+        mvc.perform(checkout("en-US")).andExpect(status().isConflict());
+        assertEquals(original, cart());
+    }
+
+    @Test
     void emptyAuthenticatedCartIsRejectedWithoutHttpCall() throws Exception {
         mvc.perform(checkout("en-US")).andExpect(status().isBadRequest());
     }
 
     @Test
     void sendsServerIdentityCurrentPricesAndQuantitiesAndClearsOnlyAfter201() throws Exception {
+        // Checkout must use saved display metadata directly, with no persisted PAN to derive it from.
+        var customer = customers.findById(user.getCustomerId()).orElseThrow();
+        customer.getAccount().getCreditCard().setLast4("9876");
+        customers.save(customer);
+        var raw = mongo.getCollection("customers").find(new org.bson.Document("account.contactInfo.email", email)).first();
+        assertNotNull(raw);
+        assertFalse(raw.toJson().contains("cardNumber"));
+        assertFalse(raw.toJson().contains(RAW_CARD));
         putItem("EST-15", 2);
         putItem("EST-1", 3);
         var catalogItem = items.findById("EST-1").orElseThrow();
@@ -170,7 +192,7 @@ class CheckoutIntegrationTests {
                         var tree = mapper.readTree(json);
                         assertEquals(2, tree.get("payment").size());
                         assertEquals("VISA", tree.get("payment").get("cardType").asText());
-                        assertEquals("1111", tree.get("payment").get("last4").asText());
+                        assertEquals("9876", tree.get("payment").get("last4").asText());
                         for (String field : List.of("orderId", "id", "createdAt", "status", "totalPrice")) {
                             assertFalse(tree.has(field));
                         }

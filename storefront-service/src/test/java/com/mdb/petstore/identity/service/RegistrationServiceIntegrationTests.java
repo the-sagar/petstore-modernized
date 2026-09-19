@@ -96,7 +96,11 @@ class RegistrationServiceIntegrationTests {
 
         var card = customer.getAccount().getCreditCard();
         assertEquals(request.getCardType(), card.getCardType());
-        assertEquals(request.getCardNumber(), card.getCardNumber());
+        assertEquals("1111", card.getLast4());
+        var raw = mongoTemplate.getCollection("customers").find(new org.bson.Document("account.contactInfo.email", email)).first();
+        assertNotNull(raw);
+        assertFalse(raw.toJson().contains("cardNumber"));
+        assertFalse(raw.toJson().contains("4111111111111111"));
         assertEquals(request.getExpiryDate(), card.getExpiryDate());
 
         var profile = customer.getProfile();

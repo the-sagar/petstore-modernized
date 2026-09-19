@@ -11,6 +11,7 @@ import com.mdb.petstore.customer.model.CreditCard;
 import com.mdb.petstore.customer.model.Customer;
 import com.mdb.petstore.customer.model.Profile;
 import com.mdb.petstore.customer.repository.CustomerRepository;
+import com.mdb.petstore.customer.payment.CardDisplayMetadata;
 import com.mdb.petstore.identity.dto.RegisterRequest;
 import com.mdb.petstore.identity.model.Role;
 import com.mdb.petstore.identity.model.User;
@@ -71,7 +72,7 @@ public class RegistrationService {
 
         CreditCard creditCard = new CreditCard();
         creditCard.setCardType(request.getCardType());
-        creditCard.setCardNumber(request.getCardNumber());
+        creditCard.setLast4(CardDisplayMetadata.last4(request.getCardNumber()));
         creditCard.setExpiryDate(request.getExpiryDate());
 
         Account account = new Account();
