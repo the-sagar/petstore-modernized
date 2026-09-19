@@ -7,7 +7,7 @@ services:
     ports:
       - "27017:27017"
     environment:
-      MONGO_INITDB_DATABASE: petstore
+      MONGO_INITDB_DATABASE: petstore_storefront
     volumes:
       - petstore-mongo-data:/data/db
     healthcheck:
