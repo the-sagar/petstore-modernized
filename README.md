@@ -89,7 +89,20 @@ With MongoDB running and `rs0` ready:
 ./mvnw clean verify
 ```
 
-The root reactor builds all three executable service JARs. The current suite contains **106 tests**: 94 Storefront, 11 Order Processing, and 1 Supplier. Tests need local MongoDB access; the test JVM also needs normal agent-attachment support for Mockito.
+The root reactor builds all three executable service JARs. The current suite contains **127 tests**: 94 Storefront, 32 Order Processing, and 1 Supplier. Tests need local MongoDB access; the test JVM also needs normal agent-attachment support for Mockito.
+
+## Artemis checkpoint startup
+
+Order Processing now also needs the local broker for order publication:
+
+```sh
+docker compose up -d artemis
+docker compose logs -f artemis
+```
+
+The pinned `apache/artemis:2.57.0-alpine` image exposes messaging on localhost:61616 and its console on http://localhost:8161. The heap is 128–256 MiB; broker data is in `petstore-artemis-data`. Local defaults are `ARTEMIS_USER=petstore` and `ARTEMIS_PASSWORD=petstore-dev`; set the same environment variables for Compose and Order Processing to override them. Existing broker volumes retain the credentials created at first startup. `ARTEMIS_BROKER_URL` and `ORDER_SUBMITTED_DESTINATION` can override the application connection and queue (`petstore.order.submitted`).
+
+This checkpoint adds asynchronous automatic approval after PENDING persistence. The architecture/parity documents below describe the preceding checkpoint and await their planned broader refresh. A failed JMS send leaves the order persisted as PENDING but fails the POST, so a retry can create another order. There is no outbox or automatic publication recovery. The transacted listener relies on Artemis redelivery (default maximum 10 attempts, no delay, generated DLQ configuration); no custom DLQ processor is implemented. Tests mock the sender and stop listeners, so the regular Maven suite does not require Artemis.
 
 ## Run services
 

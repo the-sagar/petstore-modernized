@@ -16,5 +16,27 @@ services:
       timeout: 5s
       retries: 5
 
+  artemis:
+    image: apache/artemis:2.57.0-alpine
+    container_name: petstore-artemis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:61616:61616"
+      - "127.0.0.1:8161:8161"
+    environment:
+      ARTEMIS_USER: ${ARTEMIS_USER:-petstore}
+      ARTEMIS_PASSWORD: ${ARTEMIS_PASSWORD:-petstore-dev}
+      ANONYMOUS_LOGIN: "false"
+      # artemis.profile honors JAVA_ARGS instead of its default 512M initial heap.
+      JAVA_ARGS: >-
+        -Xms128m -Xmx256m -XX:+UseG1GC
+        -Dhawtio.disableProxy=true -Dhawtio.realm=activemq -Dhawtio.offline=true
+        -Dhawtio.rolePrincipalClasses=org.apache.activemq.artemis.spi.core.security.jaas.RolePrincipal
+        -Djolokia.policyLocation=classpath:jolokia-access.xml
+        --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED
+    volumes:
+      - petstore-artemis-data:/var/lib/artemis-instance
+
 volumes:
   petstore-mongo-data:
+  petstore-artemis-data:

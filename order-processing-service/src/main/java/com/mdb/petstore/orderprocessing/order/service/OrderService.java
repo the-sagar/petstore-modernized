@@ -7,6 +7,7 @@ import java.util.UUID;
 
 import com.mdb.petstore.orderprocessing.order.dto.CreateOrderRequest;
 import com.mdb.petstore.orderprocessing.order.dto.OrderResponse;
+import com.mdb.petstore.orderprocessing.order.messaging.OrderSubmittedPublisher;
 import com.mdb.petstore.orderprocessing.order.model.Order;
 import com.mdb.petstore.orderprocessing.order.model.OrderStatus;
 import com.mdb.petstore.orderprocessing.order.repository.OrderRepository;
@@ -24,7 +25,10 @@ public class OrderService {
     private static final Logger log = LoggerFactory.getLogger(OrderService.class);
     private final OrderRepository repository;
 
-    public OrderService(OrderRepository repository) {
+    private final OrderSubmittedPublisher publisher;
+
+    public OrderService(OrderRepository repository, OrderSubmittedPublisher publisher) {
+        this.publisher = publisher;
         this.repository = repository;
     }
 
@@ -46,6 +50,9 @@ public class OrderService {
                 request.locale(), OrderStatus.PENDING, request.billingInfo(), request.shippingInfo(),
                 request.payment(), request.lineItems(), total);
         repository.insert(order);
+        // If send fails, the PENDING order remains persisted and the request fails.
+        // Mongo and JMS are not atomic: an outbox/reconciliation is future hardening.
+        publisher.publish(id);
         log.info("Order creation completed orderId={} customerId={} lineCount={} status={}",
                 id, order.customerId(), order.lineItems().size(), order.status());
         return new OrderResponse(order.id(), order.status(), order.createdAt(), order.totalPrice());

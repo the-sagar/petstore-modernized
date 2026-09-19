@@ -11,17 +11,18 @@ sequenceDiagram
     participant C as Storefront session / catalog / account
     participant O as Order Processing :8081
     participant M as MongoDB petstore_orders
+
     Browser->>S: POST /api/checkout?locale=... (session + CSRF)
     S->>C: Resolve authenticated customer and nonempty cart
     C-->>S: Current catalog prices, quantities, identity, payment display data
-    S->>S: Build contacts and deterministically numbered line snapshots
-    S->>O: RestClient POST /api/orders
-    O->>O: Validate; generate ID/time; calculate total; status=PENDING
-    O->>M: Insert one Order document
+    S->>S: Build contacts and numbered line snapshots
+    S->>O: POST /api/orders using RestClient
+    O->>O: Validate, generate ID and timestamp, calculate total, set PENDING
+    O->>M: Insert Order document
     M-->>O: Persistence acknowledged
-    O-->>S: 201 with orderId, status, createdAt, totalPrice
-    S->>S: Validate response; clear session cart
-    S-->>Browser: 201; Storefront renders confirmation
+    O-->>S: 201 with orderId, status, createdAt and totalPrice
+    S->>S: Validate response and clear session cart
+    S-->>Browser: Return 201 and render confirmation
 ```
 
 The browser never calls port 8081 directly. Supplier is not involved in this flow.

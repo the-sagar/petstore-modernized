@@ -7,6 +7,11 @@ import java.util.Set;
 import java.util.UUID;
 
 import com.mdb.petstore.orderprocessing.order.dto.OrderResponse;
+import com.mdb.petstore.orderprocessing.order.messaging.OrderSubmitted;
+import com.mdb.petstore.orderprocessing.order.messaging.OrderSubmittedListener;
+import org.springframework.jms.core.JmsTemplate;
+import org.springframework.jms.UncategorizedJmsException;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import com.mdb.petstore.orderprocessing.order.model.OrderStatus;
 import com.mdb.petstore.orderprocessing.order.repository.OrderRepository;
 
@@ -26,10 +31,12 @@ import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
+@SpringBootTest(properties = "spring.jms.listener.auto-startup=false")
 @AutoConfigureMockMvc
 class OrderCreationIntegrationTests {
 
@@ -54,13 +61,20 @@ class OrderCreationIntegrationTests {
         registry.add("spring.mongodb.uri", () -> "mongodb://localhost:27017/" + DATABASE + "?replicaSet=rs0");
     }
 
+    @MockitoSpyBean
+    private JmsTemplate jms;
+
     @Autowired private MockMvc mvc;
     @Autowired private ObjectMapper mapper;
     @Autowired private OrderRepository orders;
     @Autowired private MongoTemplate mongo;
+    @Autowired private OrderSubmittedListener listener;
+
 
     @BeforeEach
     void resetOrders() {
+        // Retain real converter configuration while replacing only the broker send.
+        doNothing().when(jms).convertAndSend(anyString(), any(String.class));
         assertEquals(DATABASE, mongo.getDb().getName());
         orders.deleteAll();
     }
@@ -173,6 +187,103 @@ class OrderCreationIntegrationTests {
     void rejectsDuplicateAndNonpositiveLineNumbers() throws Exception {
         rejected(REQUEST.replace("\"lineNumber\":2", "\"lineNumber\":1"));
         rejected(REQUEST.replace("\"lineNumber\":1", "\"lineNumber\":0"));
+    }
+
+    @Test
+    void publishesOnlyOrderIdAfterPendingOrderIsPersisted() throws Exception {
+        doAnswer(invocation -> {
+            String json = invocation.getArgument(1);
+            var tree = mapper.readTree(json);
+            assertEquals(1, tree.size());
+            String id = tree.get("orderId").asString();
+            assertEquals(OrderStatus.PENDING, orders.findById(id).orElseThrow().status());
+            return null;
+        }).when(jms).convertAndSend(eq("petstore.order.submitted"),
+                any(String.class));
+        var response = createOrder(REQUEST);
+        verify(jms).convertAndSend("petstore.order.submitted",
+                mapper.writeValueAsString(new OrderSubmitted(response.orderId())));
+    }
+
+    @Test
+    void publicationFailureLeavesPersistedOrderPending() {
+        doThrow(new UncategorizedJmsException("Broker unavailable"))
+                .when(jms).convertAndSend(anyString(), any(String.class));
+        assertThrows(jakarta.servlet.ServletException.class, () -> createOrder(REQUEST));
+        assertEquals(1, orders.count());
+        assertEquals(OrderStatus.PENDING, orders.findAll().getFirst().status());
+    }
+
+    @Test
+    void approvesSmallEnglishOrderAndDuplicateDeliveryPreservesSnapshot() throws Exception {
+        var response = createOrder(REQUEST);
+        var before = orders.findById(response.orderId()).orElseThrow();
+        deliver(response.orderId());
+        var approved = orders.findById(response.orderId()).orElseThrow();
+        assertEquals(OrderStatus.APPROVED, approved.status());
+        assertEquals(before.totalPrice(), approved.totalPrice());
+        assertEquals(before.lineItems(), approved.lineItems());
+        assertEquals(before.createdAt(), approved.createdAt());
+        assertEquals(before.payment(), approved.payment());
+        deliver(response.orderId());
+        assertEquals(approved, orders.findById(response.orderId()).orElseThrow());
+        assertEquals(1, orders.count());
+    }
+
+    @Test
+    void retainsLargeEnglishOrderPending() throws Exception {
+        var response = createOrder(REQUEST.replace("0.10", "500.00"));
+        deliver(response.orderId());
+        assertEquals(OrderStatus.PENDING, orders.findById(response.orderId()).orElseThrow().status());
+    }
+
+    @Test
+    void approvesSmallJapaneseOrder() throws Exception {
+        var response = createOrder(REQUEST.replace("en-US", "ja-JP"));
+        deliver(response.orderId());
+        assertEquals(OrderStatus.APPROVED, orders.findById(response.orderId()).orElseThrow().status());
+    }
+
+    @Test
+    void retainsUnsupportedLocalePending() throws Exception {
+        var response = createOrder(REQUEST.replace("en-US", "zh-CN"));
+        deliver(response.orderId());
+        assertEquals(OrderStatus.PENDING, orders.findById(response.orderId()).orElseThrow().status());
+    }
+
+    @Test
+    void ignoresMissingOrderAndMalformedEventsWithoutCreatingOrders() {
+        listener.receive("{\"orderId\":\"unknown\"}");
+        for (String json : new String[] {"{", "null", "{}", "{\"orderId\":null}", "{\"orderId\":\" \"}", "[]"}) {
+            assertDoesNotThrow(() -> listener.receive(json));
+        }
+        assertDoesNotThrow(() -> listener.receive(null));
+        assertEquals(0, orders.count());
+    }
+
+    @Test
+    void concurrentDuplicateDeliveriesOnlyChangeStatus() throws Exception {
+        var response = createOrder(REQUEST);
+        try (var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+            var first = executor.submit(() -> deliver(response.orderId()));
+            var second = executor.submit(() -> deliver(response.orderId()));
+            first.get();
+            second.get();
+        }
+        assertEquals(1, orders.count());
+        assertEquals(OrderStatus.APPROVED, orders.findById(response.orderId()).orElseThrow().status());
+        assertEquals(response.totalPrice(), orders.findById(response.orderId()).orElseThrow().totalPrice());
+    }
+
+    private OrderResponse createOrder(String body) throws Exception {
+        var result = mvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated()).andReturn();
+        return mapper.readValue(result.getResponse().getContentAsByteArray(), OrderResponse.class);
+    }
+
+    private void deliver(String id) {
+        listener.receive(mapper.writeValueAsString(
+                new OrderSubmitted(id)));
     }
 
     private void rejected(String body) throws Exception {
