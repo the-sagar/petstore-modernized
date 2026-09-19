@@ -1,162 +1,64 @@
-# Functional Parity Matrix
+# Functional parity
 
-## Purpose
+Parity is measured by business outcome, not reproduction of EJB/JSP/CMP implementation details. **Implemented** means the current code and tests support the behavior. **Partially implemented** identifies a working subset with explicit gaps. **Deferred / Not yet implemented** is not a claim of completion.
 
-Modernization is not intended to reproduce every implementation detail of the legacy application.
+## Account / authentication
 
-The target is to preserve required business behavior while deliberately correcting confirmed defects and deferring optional or obsolete capabilities.
-
-The parity model uses three classifications:
-
-- **Preserve** — behavior required for functional compatibility
-- **Correct** — observed behavior exists, but represents a confirmed defect or security weakness
-- **Defer / Retire** — not required for the initial modernization scope
-
----
-
-## Account / Customer / Authentication
-
-| Capability | Legacy Behavior | Target Behavior | Classification |
+| Capability | Verified legacy behavior | Current modern behavior | Status |
 |---|---|---|---|
-| Create account | Supported | Supported | Preserve |
-| Unique username | Enforced indirectly through persistence; failure handling is poor | MongoDB unique index with deterministic conflict response | Preserve + Correct |
-| Registration request handling | Original POST can be replayed by internal forward | Single registration operation; no duplicate replay | Correct |
-| Password handling | Direct legacy password comparison | BCrypt via Spring Security `PasswordEncoder` | Correct |
-| Authentication | Custom `SignOnFilter` + EJB + session | Spring Security + HTTP session | Preserve, reimplement |
-| Sign out | Session invalidation | Spring Security session invalidation | Preserve |
-| View account | Supported | Supported | Preserve |
-| Update account | Supported | Supported | Preserve |
-| Customer persistence | Split across multiple entities/tables | MongoDB-oriented customer aggregate | Reimplement |
-| Country / state validation | Weak / independent fields | Server-side semantic validation | Correct |
-| Credit-card mapping | Type / expiry defect observed | Correct mapping with tests | Correct |
-| Credit-card storage | Legacy raw-style account data | Reduced / masked payment representation for demo | Correct / Reduce |
-| Expiry options | Historical hard-coded values | Dynamic current validation | Correct |
-| Logging | Limited | Structured business-event logging | Improve |
+| Register | Separate user/customer creation; POST-forwarding defect | One validated Mongo transaction across `users`/`customers`; no create replay | Implemented |
+| Unique username | Persistence constraint with poor failure handling | Normalized username, unique index, deterministic 409 | Implemented |
+| Password/authentication | Direct comparison through custom sign-on/session code | BCrypt + Spring Security HTTP session | Implemented |
+| Account GET/PUT | Customer account viewing/editing | Principal-derived ownership; validated DTOs; no saved card number in response | Implemented |
+| Logout | Session invalidation | Spring Security logout; session invalidation and cookie removal | Implemented |
+| CSRF | Legacy interaction model | Protection on account/cart/checkout/logout writes; existing auth endpoint exemptions | Implemented modernization control |
+| Card type/expiry mapping | Positional mapping defect | Explicit field mapping | Implemented correction |
+| Country/region semantics | Independent, weakly validated fields | Required-field/email checks; independent text country/region | Partially implemented; semantic validation outstanding |
+| Expiry input | Historical choices | Free-text input; no current-date expiry validation | Partially implemented |
+| Payment storage | Raw account card data | Raw Storefront number remains; only display fields reach orders | Partially implemented; storage hardening deferred |
 
----
+## Catalog / search
 
-## Catalog / Search
-
-| Capability | Legacy Behavior | Target Direction | Classification |
+| Capability | Verified legacy behavior | Current modern behavior | Status |
 |---|---|---|---|
-| Browse categories | Verified | Preserve | Preserve |
-| Browse products | Verified | Preserve | Preserve |
-| Browse items | Verified | Preserve | Preserve |
-| Search | Verified | Preserve | Preserve |
-| Locale switching | Verified | Preserve if included in final scope | Preserve / Scope-dependent |
+| Categories/products/items | Six relational base/detail tables | Three collections with embedded localized details and legacy IDs | Implemented |
+| Real catalog migration | Original `Populate-UTF8.xml` catalog | Catalog-only resource; validated transactional seed; skips any existing catalog | Implemented |
+| Prices | Prices belong to locale-specific item details | `BigDecimal`/Decimal128 inside `ItemDetails` | Implemented |
+| Browse/search | Catalog navigation and tokenized search intent | Public REST/UI; case-insensitive all-token substring search across locale-resolved names/descriptions, category IDs, associated item descriptions | Implemented |
+| Locale | en-US, ja-JP, zh-CN; EST-15 lacks Japanese details | Requested locale → en-US → first available; no synthesized details | Implemented |
 
-Detailed target design for this area will be defined when the slice is migrated.
+Seed counts: **5 categories, 16 products, 28 items**, with **15 category, 48 product, 83 item details**. This does not import legacy users, customers, or payment data. Blank search returns an empty result; the UI restores category browsing.
 
----
+## Cart and checkout
 
-## Cart
-
-| Capability | Legacy Behavior | Target Direction | Classification |
+| Capability | Verified legacy behavior | Current modern behavior | Status |
 |---|---|---|---|
-| Add item | Verified | Preserve | Preserve |
-| Maintain cart state | Session-oriented | Preserve user-visible behavior with modern implementation | Preserve, reimplement |
-| Checkout from cart | Verified | Preserve | Preserve |
+| Anonymous cart | Session-oriented item ID → quantity | Session-scoped component, not Mongo persistence | Implemented |
+| Add | Sets quantity to 1, including repeat add | Same behavior | Implemented |
+| Update/remove | Positive quantity stored exactly; nonpositive removes | Same behavior; DELETE idempotent | Implemented |
+| Display/subtotal | Resolve current catalog data; price × quantity | CatalogService reused; current locale-resolved prices; BigDecimal totals | Implemented |
+| Checkout identity | Authentication required entering order information | Authenticated session + CSRF; server-derived identity/cart/prices | Implemented |
+| Billing/shipping | Separate order-time contacts | Prefilled editable UI snapshots; independent contacts accepted | Implemented |
+| Order submission | PurchaseOrder sent into OPC messaging flow | Synchronous HTTP creation acknowledgement, then cart clearing | Implemented with deliberate transport change |
+| Confirmation | Order acceptance precedes later processing | Storefront confirmation with generated ID, time, total, PENDING | Implemented |
+| Downstream failure | Modern reliability decision | Checkout fails without clearing cart | Implemented |
 
-Additional validation and edge cases will be documented when this flow is migrated.
+## Order processing, Admin, and Supplier
 
----
-
-## Order Processing
-
-Runtime tracing confirmed that checkout transitions into asynchronous processing.
-
-| Capability | Legacy Behavior | Target Direction | Classification |
-|---|---|---|---|
-| Submit order | Verified | Preserve | Preserve |
-| Asynchronous processing | JMS after checkout | Preserve asynchronous business boundary | Preserve, reimplement |
-| Automatic approval | Verified for lower-value order | Preserve unless requirements dictate otherwise | Preserve |
-| Pending approval | Verified for higher-value order | Preserve | Preserve |
-| Admin approval | Verified | Preserve | Preserve |
-| Admin commit | Verified | Preserve if still required by target workflow | Preserve / Review |
-| Fulfilment | Separate from approval | Preserve state distinction | Preserve |
-| Out-of-stock behavior | Approved order can remain incomplete | Preserve | Preserve |
-| Replenishment | Supplier update can allow order to complete | Preserve | Preserve |
-| Invoice processing | Part of async completion flow | Preserve business effect | Preserve, reimplement |
-
----
-
-## Admin
-
-| Capability | Legacy Behavior | Target Direction | Classification |
-|---|---|---|---|
-| View pending orders | Verified | Preserve | Preserve |
-| Approve order | Verified | Preserve | Preserve |
-| Commit approved order | Verified | Review against target workflow | Preserve / Review |
-| View completed/non-pending orders | Verified | Preserve | Preserve |
-| Statistics | Verified | Preserve if included in final scope | Scope-dependent |
-
----
-
-## Supplier
-
-| Capability | Legacy Behavior | Target Direction | Classification |
-|---|---|---|---|
-| View inventory | Verified | Preserve | Preserve |
-| Update inventory | Verified | Preserve | Preserve |
-| Notify order processing | Verified | Preserve business effect | Preserve |
-| Trigger re-evaluation of unfulfilled order | Verified | Preserve | Preserve |
-
----
-
-## Optional / Deferred Legacy Capabilities
-
-The following were identified in the legacy codebase but are not part of the initial modernization baseline:
-
-| Capability | Legacy Availability | Initial Target |
+| Capability | Verified legacy behavior | Current status / remaining work |
 |---|---|---|
-| JWSDP / JAX-RPC deployment variant | Optional | Defer |
-| Optional email notifications | Present but not baseline behavior | Defer |
-| Alternate relational DB configurations | Supported by legacy deployment options | Retire from initial target |
-| Java Web Start client technology | Used by legacy Admin | Do not reproduce technology choice |
+| Order acceptance | OPC persists PurchaseOrder and starts PENDING | Implemented: immutable snapshot, server-generated ID/time/status and recalculated total |
+| Order lifecycle | PENDING, APPROVED, DENIED, SHIPPED_PART, COMPLETED | Partially implemented: enum exists; only PENDING creation is implemented |
+| Async transport | JMS / MDB processing | Not yet implemented: future Artemis + Spring JMS |
+| Auto-approval | en-US total < 500; ja-JP total < 50000 | Not yet implemented; no threshold rules run today |
+| Manual/Admin approval and commit | Verified | Not yet implemented; no admin API/UI |
+| Fulfilment/invoice/completion | Distinct from approval | Not yet implemented |
+| Supplier boundary | Separate legacy subsystem | Partially implemented: independently bootstrappable service only |
+| Inventory, allocation, out-of-stock, replenishment | Verified supplier behavior | Not yet implemented; no business documents, endpoints, or calls |
+| Order querying/history and Admin statistics | Legacy order-management/reporting | Deferred; confirmation panel is not an order-history feature |
 
----
+## Optional / deferred capabilities
 
-## First Slice Acceptance Criteria
+JWSDP/JAX-RPC variants, optional email notifications, and alternate relational database configurations are not migrated. Java Web Start technology is not being reproduced. Payment tokenization, production service-access controls, and operational hardening are separate follow-up work.
 
-The Account / Customer / Authentication slice is considered functionally ready when:
-
-1. a new user can register successfully
-2. duplicate username registration returns a deterministic conflict response
-3. password is stored only as a BCrypt hash
-4. a registered user can sign in
-5. invalid credentials are rejected without exposing sensitive details
-6. authenticated user can retrieve account data
-7. authenticated user can update supported account fields
-8. sign out invalidates the authenticated session
-9. country / region validation follows the modern rule selected for the target
-10. credit-card type and expiry fields cannot be swapped by mapping
-11. automated tests cover the duplicate-registration regression
-12. logs provide enough context to trace success/failure without logging secrets
-
----
-
-## Working Principle
-
-Functional parity is judged by **business outcome**, not by preserving obsolete implementation mechanisms.
-
-Examples:
-
-```text
-Preserve:
-"Customer can sign in"
-
-Do not preserve:
-"Authentication must pass through SignOnEJB"
-```
-
-and:
-
-```text
-Preserve:
-"Order processing continues asynchronously"
-
-Do not preserve:
-"The target must use the same JMS implementation and EJB MDB structure"
-```
-
-This keeps the migration behavior-focused rather than technology-copying.
+See [legacy observations](01-legacy-system-overview.md), [defect status](03-legacy-defects.md), and [current order flow](07-order-processing.md). Tests verify the implemented slices; they do not demonstrate deferred asynchronous functionality.

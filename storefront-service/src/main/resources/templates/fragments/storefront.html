@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<header th:fragment="navigation" class="site-header">
+    <a class="brand" href="/shop" th:href="@{/shop}" data-locale-link>Petstore</a>
+    <nav aria-label="Main navigation">
+        <a href="/shop" th:href="@{/shop}" data-locale-link>Shop</a>
+        <a href="/cart" th:href="@{/cart}" data-locale-link>Cart</a>
+        <a href="/account" th:href="@{/account}" data-locale-link>Account</a>
+    </nav>
+    <label class="locale-control">Catalog locale
+        <select id="locale-select" aria-label="Catalog locale">
+            <option value="en-US">English (US)</option>
+            <option value="ja-JP">日本語</option>
+            <option value="zh-CN">中文</option>
+        </select>
+    </label>
+</header>
+</body>
+</html>

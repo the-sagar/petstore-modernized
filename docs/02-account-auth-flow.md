@@ -1,317 +1,69 @@
-# Legacy Account / Customer / Authentication Flow
+# Account / Customer / Authentication
 
-## Purpose
+## Verified legacy baseline
 
-This document records the observed Account / Customer / Authentication behavior of the legacy application.
+The legacy Storefront used `SignOnFilter` → `SignOnEJB` → `UserEJB`, direct password comparison, and HTTP session state. Registration and customer updates traversed HTMLAction/Event/EJBAction/EJB layers synchronously. Those framework `Event` objects were in-process commands, not JMS messages.
 
-This is the first vertical slice selected for modernization because it exercises:
+Customer persistence was spread across User, Customer, Account, ContactInfo, Address, CreditCard, and Profile tables. Direct Cloudscape inspection verified these relationships. Legacy logout invalidated the session.
 
-- HTTP request routing
-- authentication
-- HTTP session state
-- business-layer orchestration
-- persistence
-- validation
-- error handling
+A confirmed registration defect forwarded the original successful POST to `customer.do`, retaining `action=create` and attempting customer creation again. The resulting duplicate-key failure and stateful EJB coupling are recorded in [legacy defects](03-legacy-defects.md).
 
-It does **not** require JMS.
+## Implemented ownership and persistence
 
----
+All account/authentication functionality lives in `storefront-service`, using `petstore_storefront`.
 
-## Authentication Model
+| Collection | Contents |
+|---|---|
+| `users` | Normalized unique username, BCrypt `passwordHash`, roles, enabled flag, `customerId`, timestamps |
+| `customers` | Embedded account/contact/address/credit-card fields and profile, plus timestamps |
 
-The Storefront uses custom form-based authentication.
+`User.customerId` links identity to the customer aggregate by ID, without DBRef. This is a deliberate two-aggregate split, not seven collections and not a combined credentials/customer document. Other services do not read these repositories.
 
-At a high level:
+## Registration — implemented
 
-```text
-Sign-in request
-    ↓
-SignOnFilter
-    ↓
-SignOnEJB.authenticate(...)
-    ↓
-UserEJB lookup
-    ↓
-Password comparison
-    ↓
-HTTP session updated
-```
+`POST /api/auth/register` validates required fields and email, then `RegistrationService`:
 
-The legacy implementation uses server-side HTTP session state rather than JWT-based authentication.
+1. Trims and lowercases the username using `Locale.ROOT`.
+2. Checks username availability; a unique Mongo index also enforces it.
+3. Builds and saves the embedded customer aggregate.
+4. Hashes the password through Spring Security's `PasswordEncoder`/BCrypt and saves the linked user.
+5. Commits both writes under `@Transactional` and `MongoTransactionManager`.
 
-The account slice will initially preserve the session-oriented interaction model using Spring Security.
+The local `rs0` replica set enables transaction semantics. A failed user write rolls back the customer write. Successful registration returns 201; duplicate usernames return 409. The UI redirects to login rather than internally forwarding the original POST into a second create handler.
 
----
+## Sign-in and session — implemented
 
-## Sign-In Flow
+`POST /api/auth/login` accepts form credentials. Spring Security's authentication provider loads the user through `MongoUserDetailsService` and checks the BCrypt hash. Success returns JSON; the login page navigates to `/shop`. Invalid credentials return 401.
 
-Observed authentication behavior can be summarized as:
+Authentication uses an HTTP session, not a JWT. Session-fixation protection retains the existing anonymous cart during login, as covered by the page/session-handoff test. The cart itself stores only item IDs and quantities. Business services are not EJB objects held in the session.
 
-1. A protected Storefront request is intercepted by `SignOnFilter`.
-2. The original target URL may be stored in the HTTP session.
-3. Credentials are submitted through the legacy sign-on flow.
-4. `SignOnEJB` performs authentication.
-5. `UserEJB` is used to resolve the user.
-6. The stored password is compared directly by the legacy code.
-7. Successful authentication updates session state.
-8. The request flow continues into the Storefront.
+## Account ownership and update — implemented
 
-The modern implementation will replace custom authentication plumbing with Spring Security.
+| Endpoint | Behavior |
+|---|---|
+| `GET /api/account` | Returns the authenticated customer's account DTO; anonymous access returns 401 |
+| `PUT /api/account` | Validates and updates that customer's contact, address, payment fields, and profile; requires authentication and CSRF |
+| `GET /account` | Renders the account page; anonymous users are redirected to login |
+| `POST /api/auth/logout` | Requires authentication and CSRF; returns 204, clears the security context, invalidates the session, and deletes the session cookie |
 
----
+Ownership resolution is authenticated principal → normalized username → `User.customerId` → `Customer`. Neither GET nor PUT accepts a caller-selected customer ID. Account responses do not expose password hashes or the saved card number.
 
-## Sign-Out Flow
+Logout also ends the session-scoped cart. There is no durable cart persistence or cross-service session sharing.
 
-Observed sign-out behavior:
+## CSRF and validation boundaries
 
-```text
-SignOffHTMLAction
-    ↓
-HttpSession.invalidate()
-    ↓
-Replacement session created
-```
+CSRF remains enabled for account PUT, cart writes, checkout POST, and logout POST. Registration and login are explicitly exempted by the existing configuration. Thymeleaf pages read the request's CSRF token/header and include them on protected JavaScript mutations.
 
-The modern application will preserve the user-visible behavior while relying on Spring Security's session-management support.
+Required contact/address fields and email syntax are validated. Country and state/province remain independent text fields: country-aware semantic validation is **not implemented**. The expiry field is not backed by dynamic expiry-range validation.
 
----
+## Payment security: partially corrected
 
-## Account Creation Flow
+The customer account still stores `cardType`, raw `cardNumber`, and `expiryDate`. The account page does not display the saved number; when saving, leaving its card-number input blank clears the saved value. Registration permits missing payment fields, but checkout requires usable saved payment display information.
 
-Account registration is split into user creation and customer/profile creation.
+Checkout derives only `cardType` and `last4` for the order request. Raw card data does not cross into Order Processing. Removing/tokenizing raw Storefront storage remains an explicit security-hardening follow-up; this is not a PCI-compliant payment integration.
 
-### User creation
+## Evidence and scope
 
-Conceptually:
+Tests cover registration success, duplicate handling and rollback, authentication/logout, account ownership/update, CSRF, and session retention. Business-event logs identify users/customers and outcomes without intentionally logging passwords or full payment payloads.
 
-```text
-HTTP POST
-    ↓
-CreateUserHTMLAction
-    ↓
-CreateUserEvent
-    ↓
-CreateUserEJBAction
-    ↓
-SignOnEJB
-    ↓
-UserEJB
-```
-
-### Customer creation
-
-Customer details are then handled through a separate flow:
-
-```text
-CustomerHTMLAction
-    ↓
-CustomerEvent
-    ↓
-CustomerEJBAction
-    ↓
-CustomerEJB
-    ↓
-AccountEJB
-    ↓
-ContactInfoEJB
-    ↓
-AddressEJB
-    ↓
-CreditCardEJB
-    ↓
-ProfileEJB
-```
-
-The legacy framework's `Event` objects are synchronous, in-process commands. They are not JMS events.
-
----
-
-## Account Persistence Model
-
-The legacy customer is not stored as a single aggregate.
-
-Instead, it is distributed across:
-
-- user credentials
-- customer identity
-- account status
-- contact information
-- postal address
-- credit-card data
-- customer preferences
-
-Relevant tables include:
-
-```text
-UserEJBTable
-CustomerEJBTable
-AccountEJBTable
-ContactInfoEJBTable
-AddressEJBTable
-CreditCardEJBTable
-ProfileEJBTable
-```
-
-The relationships were verified directly in Cloudscape.
-
----
-
-## Account Update
-
-Observed account updates follow the same synchronous application path.
-
-Conceptually:
-
-```text
-HTTP Request
-    ↓
-CustomerHTMLAction
-    ↓
-CustomerEvent
-    ↓
-CustomerEJBAction
-    ↓
-Customer / Account / Contact / Profile entities
-    ↓
-Cloudscape
-```
-
-The update path does not introduce a JMS boundary.
-
----
-
-## Confirmed Registration Defect
-
-The registration flow exposes a request-forwarding defect.
-
-Observed sequence:
-
-```text
-POST /createuser.do
-    ↓
-User creation succeeds
-    ↓
-Customer creation succeeds
-    ↓
-Flow handler reads original destination
-    ↓
-RequestDispatcher.forward("/customer.do")
-    ↓
-Original HTTP request is reused
-    ↓
-action=create remains present
-    ↓
-CustomerHTMLAction handles CREATE again
-    ↓
-Second customer creation attempted
-    ↓
-DuplicateKeyException
-    ↓
-HTTP 500
-```
-
-The key issue is not simply a missing duplicate check.
-
-The root cause is that an internal server-side forward reuses the original POST request and its parameters.
-
-### Target behavior
-
-The modern application must ensure that successful registration cannot accidentally replay a create command.
-
-For the REST/API layer, registration will be a single operation with deterministic success and duplicate-user responses.
-
-If a server-rendered UI is added, successful form submission should follow a redirect-based pattern rather than forwarding the original POST into another create-capable route.
-
----
-
-## Password Modernization
-
-The legacy application performs direct password comparison.
-
-The modern implementation will use:
-
-```text
-Spring Security PasswordEncoder
-    ↓
-BCryptPasswordEncoder
-```
-
-The application service will depend on the `PasswordEncoder` abstraction rather than on ad hoc hashing logic.
-
-Passwords will not be stored in recoverable form.
-
----
-
-## Target Account Aggregate
-
-The exact MongoDB document will be finalized during implementation, but the working aggregate boundary is:
-
-```text
-CustomerAccount
-├── username
-├── passwordHash
-├── status
-├── contact
-│   ├── firstName
-│   ├── lastName
-│   ├── email
-│   ├── phone
-│   └── address
-├── preferences
-└── payment summary
-```
-
-The target model will not copy the seven-table relational structure mechanically.
-
-A unique index on username will enforce account identity at the database level.
-
----
-
-## Payment Data Scope
-
-The legacy application stores card details directly.
-
-For the modernization exercise, the account model should avoid persisting a full raw card number where it is not necessary for demonstrating the business flow.
-
-A reduced representation such as card type, masked / last-four value, and expiry information is preferred for the demo.
-
----
-
-## Target API Behavior
-
-The initial slice is expected to support operations equivalent to:
-
-```text
-Register account
-Sign in
-Get current account
-Update current account
-Sign out
-```
-
-Expected characteristics:
-
-- synchronous request handling
-- unique username enforcement
-- BCrypt password hashing
-- session-based authentication
-- validation at the HTTP boundary
-- deterministic error mapping
-- structured logging
-- automated regression tests
-
----
-
-## Explicit Non-Requirement: Messaging
-
-There is no observed JMS dependency in Account / Customer / Authentication.
-
-Therefore the initial slice will **not** introduce:
-
-- Kafka
-- RabbitMQ
-- Artemis
-- JMS
-
-Adding messaging here would increase complexity without preserving an observed business requirement.
+Messaging is not part of this synchronous slice. See [order processing](07-order-processing.md) for the implemented HTTP boundary and the separate, planned asynchronous stage.

@@ -30,7 +30,10 @@ class PageControllerIntegrationTests {
         mockMvc.perform(get("/login"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("login"))
-                .andExpect(content().string(containsString("/api/auth/login")));
+                .andExpect(content().string(containsString("/api/auth/login")))
+                .andExpect(result -> org.junit.jupiter.api.Assertions.assertTrue(result.getResponse()
+                        .getContentAsString().replace("\\/", "/").contains("const shopUrl = \"/shop\";")))
+                .andExpect(content().string(containsString("window.location.assign(shopUrl)")));
         mockMvc.perform(get("/css/petstore.css"))
                 .andExpect(status().isOk());
     }
@@ -62,17 +65,17 @@ class PageControllerIntegrationTests {
     }
 
     @Test
-    void anonymousHomeRedirectsToLogin() throws Exception {
+    void anonymousHomeRedirectsToShop() throws Exception {
         mockMvc.perform(get("/"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/login"));
+                .andExpect(redirectedUrl("/shop"));
     }
 
     @Test
-    void authenticatedHomeRedirectsToAccount() throws Exception {
+    void authenticatedHomeRedirectsToShop() throws Exception {
         mockMvc.perform(get("/").session(authenticatedSession()))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/account"));
+                .andExpect(redirectedUrl("/shop"));
     }
 
     private MockHttpSession authenticatedSession() {

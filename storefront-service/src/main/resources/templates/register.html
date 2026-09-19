@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Create an account · Petstore</title>
     <link rel="stylesheet" th:href="@{/css/petstore.css}" href="/css/petstore.css">
+    <script defer src="/assets/storefront.js" th:src="@{/assets/storefront.js}"></script>
 </head>
 <body>
+<header th:replace="~{fragments/storefront :: navigation}"></header>
 <main>
-    <header><span class="brand">Petstore</span><a th:href="@{/login}" href="/login">Sign in</a></header>
     <section class="panel">
         <h1>Create your account</h1>
         <p>Keep your contact details and preferences in one place.</p>

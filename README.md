@@ -1,366 +1,177 @@
-# Petstore Modernization
+# Java Pet Store modernization
 
-Modernization of the legacy **Java Pet Store 1.3.1_02** application to a modern Java platform using **Java 21, Spring Boot, Spring Security, and MongoDB**.
+## Project overview
 
-This project is being treated as a modernization exercise rather than a framework-only rewrite. Before implementing the target application, the legacy system was reproduced in its original runtime, functionally tested, instrumented, and inspected across the web, persistence, and messaging layers.
+An incremental modernization of **Java Pet Store 1.3.1_02** using **Java 21, Spring Boot 4.1.1, and MongoDB 7**. MongoDB was an optional stretch goal in the challenge and is implemented.
 
-The objective is to preserve required business behavior while removing obsolete platform dependencies, correcting confirmed legacy defects, simplifying the domain model, and introducing modern engineering practices around security, validation, testing, and observability.
+The original application was exercised and inspected before migrating vertical slices. The current customer flow is implemented: registration/sign-in, catalog browsing/search, session cart, authenticated checkout, and order confirmation. Order creation ends at **PENDING**; approval and fulfilment are not implemented.
 
----
+## Architecture
 
-## Project Status
+| Service | Port | Current responsibility |
+|---|---:|---|
+| Storefront Service | 8080 | Identity/authentication, customer/account, catalog/search, anonymous session cart, checkout orchestration, Thymeleaf UI |
+| Order Processing Service | 8081 | Immutable order snapshots, synchronous `POST /api/orders`, validation, total calculation, initial `PENDING` persistence |
+| Supplier Service | 8082 | Bootstrap and service boundary only; supplier/inventory business flow is a next migration slice |
 
-**Current phase:** Legacy analysis completed for the initial **Account / Customer / Authentication** vertical slice.
-
-The modern implementation will begin with:
-
-- account registration
-- sign in
-- sign out
-- account retrieval
-- account update
-- MongoDB persistence
-- validation
-- BCrypt password hashing
-- automated tests
-- structured logging
-
-Additional business flows will be migrated after the first vertical slice establishes the target application patterns.
-
----
-
-## Legacy Application Baseline
-
-The original Java Pet Store application was reproduced using its legacy-era stack:
-
-- JDK 1.4.1
-- J2EE SDK 1.3.1 Reference Implementation
-- EJB 2.0
-- JMS
-- JSP / Servlets
-- Cloudscape
-- Java Web Start for the Admin client
-
-The runtime was isolated in a 32-bit Debian virtual machine so that original application behavior could be observed without changing the platform.
-
-### Functional areas examined
-
-- Storefront
-- Account / Customer management
-- Shopping cart
-- Checkout
-- Order Processing Center (OPC)
-- Supplier fulfilment
-- Admin order management
-- Reporting / statistics
-
-### Legacy behaviors manually verified
-
-- catalog browsing
-- product search
-- locale switching
-- account creation
-- sign in / sign out
-- account update
-- shopping cart
-- checkout
-- automatic approval for lower-value orders
-- pending approval for higher-value orders
-- Admin approve / commit
-- supplier inventory updates
-- out-of-stock fulfilment behavior
-- inventory replenishment
-- order completion
-- Admin statistics
-
----
-
-## Legacy Architecture Observations
-
-The application combines synchronous web request processing with asynchronous order processing.
-
-### Account / Authentication
-
-The Account / Customer / Authentication flow is synchronous.
-
-```text
-HTTP Request
-    ↓
-HTMLAction
-    ↓
-Event
-    ↓
-EJBAction
-    ↓
-EJB
-    ↓
-Cloudscape
+```mermaid
+flowchart LR
+    B[Browser] --> S[Storefront :8080]
+    S -->|synchronous HTTP / RestClient| O[Order Processing :8081]
+    S --> SD[(petstore_storefront)]
+    O --> OD[(petstore_orders)]
+    O -.->|FUTURE: Artemis / Spring JMS| P[Supplier :8082 - scaffold only]
+    P -.->|planned business data| PD[(petstore_supplier)]
+    subgraph Mongo[One local MongoDB 7 process - replica set rs0]
+        SD
+        OD
+        PD
+    end
 ```
 
-The legacy framework uses classes named `Event`, but these are in-process application commands rather than JMS messages.
+Solid arrows show implemented communication. Dashed arrows are **future work**, not an installed broker or working supplier flow. Services have no Java/Maven dependencies on one another and do not access each other's repositories or databases. See [target architecture](docs/06-target-architecture.md).
 
-Authentication follows a custom form/session model:
-
-```text
-SignOnFilter
-    ↓
-SignOnEJB
-    ↓
-UserEJB
-    ↓
-HTTP Session
-```
-
-### Order Processing
-
-Checkout crosses a real asynchronous boundary:
+## Repository structure
 
 ```text
-Checkout
-    ↓
-OrderEJBAction
-    ↓
-AsyncSenderEJB
-    ↓
-JMS
-    ↓
-PurchaseOrderMDB / OPC
-    ↓
-Approval
-    ↓
-Supplier
-    ↓
-Invoice
-    ↓
-Order Completion
+petstore-modernized/
+├── pom.xml                       # Parent/aggregator: Boot management, Java 21
+├── mvnw, mvnw.cmd, .mvn/          # Maven wrapper
+├── compose.yaml                  # One MongoDB 7 container
+├── storefront-service/           # pom.xml + existing application/resources/tests
+├── order-processing-service/     # pom.xml + order creation API/tests
+├── supplier-service/             # pom.xml + bootstrap/startup test
+└── docs/
 ```
 
-The target architecture will preserve asynchronous processing only where the observed business workflow justifies it.
+## Prerequisites
 
----
+- Java 21 (`java -version`; configure `JAVA_HOME` accordingly)
+- Docker and Docker Compose
+- Maven wrapper included; no separate Maven installation required
+- Available local ports 27017, 8080, 8081, and 8082
 
-## Legacy Persistence Model
+Commands below run from the repository root. Windows users can use `mvnw.cmd`.
 
-A single logical customer is distributed across several relational persistence entities:
+## Start MongoDB
 
-```text
-User
-  │
-Customer
-  │
-  ├── Account
-  │     ├── ContactInfo
-  │     │      └── Address
-  │     └── CreditCard
-  │
-  └── Profile
+```sh
+docker compose up -d mongodb
 ```
 
-Corresponding tables include:
+Compose runs **one MongoDB 7 container**, with a named data volume and `--replSet rs0`. The single-node replica set supports local Mongo transaction semantics; it is not a high-availability deployment.
 
-- `UserEJBTable`
-- `CustomerEJBTable`
-- `AccountEJBTable`
-- `ProfileEJBTable`
-- `ContactInfoEJBTable`
-- `AddressEJBTable`
-- `CreditCardEJBTable`
+On a **fresh data volume**, inspect replica-set state:
 
-The MongoDB target model will be designed around logical aggregates and application access patterns rather than reproducing this relational structure one-for-one.
-
----
-
-## Confirmed Legacy Findings
-
-Runtime testing, source inspection, temporary instrumentation, and direct Cloudscape queries identified several concrete issues.
-
-### Duplicate customer creation after registration
-
-A successful registration can be followed by an internal forward to `customer.do` while the original POST parameter `action=create` remains present.
-
-That causes the customer creation path to execute a second time and can result in:
-
-```text
-DuplicateKeyException
-HTTP 500
+```sh
+docker compose exec mongodb mongosh --quiet --eval 'rs.status()'
 ```
 
-### Stateful EJB coupling
+If it reports that the replica set is not initialized, initialize it once:
 
-After certain transaction failures, later requests can encounter:
-
-```text
-javax.ejb.NoSuchObjectLocalException
+```sh
+docker compose exec mongodb mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"localhost:27017"}]})'
 ```
 
-because the application attempts to reuse stateful EJB session state that is no longer valid.
+Check readiness before starting services/tests:
 
-### Credit-card field mapping defect
-
-Credit-card type and expiry values can be persisted into the wrong fields.
-
-The defect was traced to a positional constructor argument mismatch where multiple parameters share the same `String` type, allowing the code to compile despite incorrect mapping.
-
-### Weak geographic validation
-
-Country and State / Province are independent inputs. Invalid combinations can therefore be accepted because the backend does not enforce semantic consistency between them.
-
-### Obsolete hard-coded reference data
-
-Some form values, including credit-card expiry choices, are hard-coded to historical values.
-
-### Limited observability
-
-Temporary instrumentation was required to trace important account, authentication, request-routing, JMS, fulfilment, and order-completion paths.
-
-The modern application will add structured logging at meaningful business boundaries.
-
----
-
-## Modernization Goals
-
-The target application aims to:
-
-- migrate the application to Java 21
-- replace legacy J2EE / EJB dependencies with Spring Boot
-- replace custom authentication infrastructure with Spring Security
-- replace legacy password handling with BCrypt hashing
-- simplify customer persistence using a MongoDB-oriented aggregate
-- enforce deterministic validation and error handling
-- prevent duplicate request processing
-- reduce coupling to server-side stateful business components
-- introduce automated unit and integration tests
-- improve observability with structured logging
-- preserve asynchronous processing only where required
-- maintain documented functional parity with the legacy application
-
----
-
-## Target Technology
-
-Initial target stack:
-
-- Java 21
-- Spring Boot
-- Spring Web
-- Spring Security
-- Spring Data MongoDB
-- Bean Validation
-- BCrypt
-- Maven
-- JUnit
-- MongoDB
-
-Additional infrastructure will be introduced only where supported by the analyzed legacy behavior and modernization requirements.
-
----
-
-## First Modernization Slice
-
-The first vertical slice covers **Account / Customer / Authentication**.
-
-```text
-Register
-   ↓
-Persist customer aggregate
-   ↓
-Authenticate
-   ↓
-Create session
-   ↓
-View account
-   ↓
-Update account
-   ↓
-Logout
+```sh
+docker compose exec mongodb mongosh --quiet --eval 'db.hello().isWritablePrimary'
 ```
 
-The slice will include:
+Wait for `true`. The Compose ping health check alone does not establish replica-set readiness. Existing initialized volumes retain their configuration; do not reinitialize them. These hostnames assume the Java services run on the host, as below.
 
-- unique username enforcement
-- BCrypt password hashing
-- server-side validation
-- account retrieval
-- account updates
-- session-based authentication
-- deterministic duplicate-account handling
-- structured logging
-- automated tests
+## Build
 
----
+With MongoDB running and `rs0` ready:
 
-## Functional Parity Strategy
-
-Legacy behavior is classified into three categories:
-
-1. **Preserve** — behavior required for functional compatibility.
-2. **Correct** — confirmed legacy defects that should not be reproduced.
-3. **Retire or defer** — optional or obsolete capabilities outside the initial modernization scope.
-
-The detailed parity matrix is maintained in:
-
-[`docs/04-functional-parity.md`](docs/04-functional-parity.md)
-
----
-
-## Documentation
-
-Detailed analysis and modernization notes are maintained under `docs/`.
-
-- [Legacy System Overview](docs/01-legacy-system-overview.md)
-- [Account and Authentication Flow](docs/02-account-auth-flow.md)
-- [Observed Legacy Defects](docs/03-legacy-defects.md)
-- [Functional Parity](docs/04-functional-parity.md)
-- [AI Usage](docs/05-ai-usage.md)
-
-These documents will evolve alongside the implementation.
-
----
-
-## AI Usage
-
-AI tooling is being used as an engineering assistant for selected activities such as:
-
-- diagnostic instrumentation
-- code scaffolding
-- test scaffolding
-- implementation suggestions
-- documentation refinement
-
-AI-generated changes are reviewed before acceptance.
-
-Architecture decisions, scope decisions, runtime verification, defect interpretation, database inspection, and modernization choices are explicitly validated by the developer.
-
-See:
-
-[`docs/05-ai-usage.md`](docs/05-ai-usage.md)
-
----
-
-## Running the Application
-
-The modern implementation has not yet been completed.
-
-Build and local run instructions will be added once the first modernized vertical slice is available.
-
----
-
-## Repository Approach
-
-The repository history is intentionally incremental:
-
-```text
-Legacy analysis
-    ↓
-Documented findings
-    ↓
-Functional parity definition
-    ↓
-Target design
-    ↓
-Vertical-slice implementation
-    ↓
-Automated verification
+```sh
+./mvnw clean verify
 ```
 
-This keeps modernization decisions traceable to observed legacy behavior instead of treating the exercise as a framework-only rewrite.
+The root reactor builds all three executable service JARs. The current suite contains **106 tests**: 94 Storefront, 11 Order Processing, and 1 Supplier. Tests need local MongoDB access; the test JVM also needs normal agent-attachment support for Mockito.
+
+## Run services
+
+Run each command in a separate terminal:
+
+```sh
+./mvnw -pl order-processing-service spring-boot:run
+./mvnw -pl storefront-service spring-boot:run
+./mvnw -pl supplier-service spring-boot:run
+```
+
+Supplier can start independently but is not needed for the current checkout demo. Alternatively, import the root `pom.xml` into IntelliJ, select Java 21, and run each module's application class.
+
+Open **http://localhost:8080**. `/` redirects to `/shop`. The browser talks only to Storefront; it never needs to visit port 8081. Order Processing and Supplier have no browser home pages, so `/` on ports 8081/8082 can legitimately return 404.
+
+Storefront's HTTP client configuration is in its `application.properties`:
+
+```properties
+petstore.order-processing.base-url=http://localhost:8081
+petstore.order-processing.connect-timeout=3s
+petstore.order-processing.read-timeout=5s
+```
+
+## Demo journey
+
+1. Register through `/register`, then sign in. Login navigates to Shop. Use fictitious demo contact/payment data, not real card details.
+2. Browse FISH → Angelfish, or search for a product. Locale selection supports `en-US`, `ja-JP`, and `zh-CN`.
+3. Add EST-1 to the cart. Adding the same item again resets its quantity to 1.
+4. Open Cart and update the quantity. Zero/negative quantities remove the item.
+5. Proceed to Checkout. Browsing/cart work anonymously; checkout requires sign-in. The cart survives login, after which you can return through Shop/Cart.
+6. Review the summary and prefilled billing/shipping contacts. Edit shipping independently if needed. Checkout derives payment display data from the saved account, so a saved card type and number are required for this demo; the checkout form never requests them.
+7. Submit and see the generated order ID, timestamp, total, and **PENDING** status. Open Cart to confirm it is empty.
+
+If Order Processing is unavailable, checkout fails and the session cart stays intact. The UI displays: “Order processing is temporarily unavailable. Your cart has been kept.” It does not expose downstream exception bodies. [Order flow and failure boundaries](docs/07-order-processing.md) describe the exact behavior.
+
+## Databases and catalog data
+
+| Logical database | Owner | Current data |
+|---|---|---|
+| `petstore_storefront` | Storefront | Users, customers, categories, products, items; cart is session-only |
+| `petstore_orders` | Order Processing | Order snapshots |
+| `petstore_supplier` | Supplier | Configured ownership only; no inventory/domain collections yet |
+
+One Mongo process hosts these logical databases locally. MongoDB creates databases/collections when needed; an unused Supplier database may not yet appear in listings. No service reads another service's database. Data from an older `petstore` database is not automatically migrated.
+
+Storefront seeds `src/main/resources/legacy/catalog.xml` within its module, extracted from the original legacy `<Catalog>` section only. No legacy Users, Customers, passwords, or payment data were copied. The resource contains 5 categories, 16 products, and 28 items, with 15/48/83 embedded localized details respectively.
+
+The seeder validates before transactional insertion and **skips if any catalog data already exists**, including a partial catalog. It does not wipe data or overwrite edits. Locale resolution is requested locale → `en-US` → first available detail. EST-15 deliberately lacks Japanese item details. Search is case-insensitive, uses all whitespace-separated tokens, and searches locale-resolved product text/category IDs and associated item descriptions.
+
+## Security
+
+- Spring Security with server-side HTTP sessions and BCrypt password hashes; no JWT/distributed session authentication was introduced.
+- Account and checkout require authentication. Catalog and cart are public.
+- CSRF remains enabled for account updates, cart mutations, checkout, and logout. Registration/login endpoints retain their existing explicit CSRF exemptions.
+- Thymeleaf provides CSRF tokens to the vanilla JavaScript pages. Account ownership resolves from the authenticated user, never a browser-supplied customer ID.
+- Only `cardType` and `last4` cross Storefront → Order Processing. Raw PAN/CVV are not part of the order contract.
+- **Outstanding:** Storefront customer persistence still stores the raw card number. Account responses omit it, but storage hardening/tokenization is not implemented. This demo makes no PCI-compliance or production-readiness claim.
+- Order Processing is an internal backend API without browser-session authentication; production service-to-service access controls are not demonstrated here.
+
+## Testing
+
+The suite covers registration/authentication, registration transaction rollback, account ownership, catalog parsing/seeding and locale behavior, cart session isolation, CSRF/security, checkout HTTP failures, order validation/persistence, and MVC/template integration. Checkout HTTP tests use `MockRestServiceServer`; they do not require a running Order Processing process. Dedicated catalog/cart/checkout/order test classes use isolated Mongo databases; existing account tests clean up their test records.
+
+Page tests cover public/protected routes, rendered CSRF tokens, and anonymous-cart retention through real login. A separate headless Chrome smoke check exercised the customer UI with mocked APIs; it is not a live end-to-end distributed-system test or part of the Maven test count.
+
+## Deferred / next work
+
+- ActiveMQ Artemis + Spring JMS integration
+- Asynchronous order processing and automatic approval
+- Supplier inventory, allocation, replenishment, and fulfilment
+- Manual/admin approval and admin APIs/UI
+- Order completion and order history/query UI
+- Payment persistence hardening/tokenization
+
+The lifecycle enum includes later states, but only `PENDING` is currently created. No broker, JMS publisher/listener, approval rule, supplier call, or inventory workflow is implemented.
+
+## Further reading
+
+- [Verified legacy system](docs/01-legacy-system-overview.md)
+- [Implemented account/authentication flow](docs/02-account-auth-flow.md)
+- [Legacy defects and modernization status](docs/03-legacy-defects.md)
+- [Functional parity](docs/04-functional-parity.md)
+- [AI assistance and human decisions](docs/05-ai-usage.md)
+- [Target architecture: current and planned](docs/06-target-architecture.md)
+- [Synchronous order processing](docs/07-order-processing.md)

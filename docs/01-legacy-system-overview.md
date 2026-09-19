@@ -216,7 +216,7 @@ Relevant Cloudscape tables include:
 
 Direct database inspection was used to verify the relationships between these records.
 
-The target MongoDB model will be designed around logical ownership and access patterns rather than mapping each legacy table to a separate collection.
+The implemented MongoDB models follow logical ownership and access patterns rather than mapping each legacy table to a separate collection. The legacy observations above remain the historical baseline.
 
 ---
 
@@ -255,3 +255,15 @@ The baseline produces several concrete design implications:
 5. Separate order approval from fulfilment state.
 6. Introduce automated tests around defects discovered during baseline analysis.
 7. Add structured observability so business flow tracing does not require temporary `System.out.println` instrumentation.
+
+
+## Modern target mapping
+
+| Verified legacy subsystem | Modern boundary | Current status |
+|---|---|---|
+| Storefront | `storefront-service` | Implemented: account/authentication, catalog/search, session cart, checkout orchestration, customer UI |
+| Order Processing Center (OPC) | `order-processing-service` | Implemented: synchronous order creation and initial `PENDING` persistence; later lifecycle processing deferred |
+| Supplier | `supplier-service` | Service scaffold only; inventory and supplier business processing not implemented |
+| JMS / EJB MDB boundary | Future ActiveMQ Artemis + Spring JMS | Planned; no broker, publishers, or listeners yet |
+
+The modern Storefront currently submits orders over synchronous HTTP so it can confirm persistence before clearing the cart. This deliberately differs from the legacy checkout transport while leaving later approval/fulfilment as a planned asynchronous business boundary. See [target architecture](06-target-architecture.md) and [order processing](07-order-processing.md). The legacy approval, replenishment, and completion observations in this document are **not claims of implemented modern functionality**.

@@ -1,7 +1,5 @@
 package com.mdb.petstore.web;
 
-import java.security.Principal;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
@@ -13,10 +11,33 @@ public class PageController {
     private static final Logger log = LoggerFactory.getLogger(PageController.class);
 
     @GetMapping("/")
-    public String home(Principal principal) {
-        log.debug("Root navigation authenticated={} destination={}", principal != null,
-                principal == null ? "/login" : "/account");
-        return principal == null ? "redirect:/login" : "redirect:/account";
+    public String home() {
+        return "redirect:/shop";
+    }
+
+    @GetMapping("/shop")
+    public String shop() {
+        return "shop";
+    }
+
+    @GetMapping("/shop/categories/{categoryId}")
+    public String category() {
+        return "category";
+    }
+
+    @GetMapping("/shop/products/{productId}")
+    public String product() {
+        return "product";
+    }
+
+    @GetMapping("/cart")
+    public String cart() {
+        return "cart";
+    }
+
+    @GetMapping("/checkout")
+    public String checkout() {
+        return "checkout";
     }
 
     @GetMapping("/login")

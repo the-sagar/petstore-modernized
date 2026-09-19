@@ -39,3 +39,42 @@ button:disabled { opacity: .55; cursor: wait; }
     .grid { grid-template-columns: 1fr; }
     main.narrow { margin-top: 2vh; }
 }
+
+[hidden] { display: none !important; }
+.site-header { max-width: 1120px; margin: 0 auto 28px; flex-wrap: wrap; }
+.site-header .brand { font-size: 1rem; text-decoration: none; }
+.site-header nav { display: flex; gap: 22px; flex: 1; }
+.locale-control { font-size: .8rem; }
+.locale-control select { padding: 6px 10px; }
+main.storefront { max-width: 1120px; }
+.storefront .panel + .panel, .storefront .panel { margin-bottom: 22px; }
+h2 { font-size: 1.3rem; margin-top: 24px; }
+h3 { margin: 0 0 10px; font-size: 1.1rem; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; margin: 20px 0; }
+.card { border: 1px solid #d9e1db; border-radius: 8px; padding: 20px; }
+.card p:last-child { margin-bottom: 0; }
+.item-price, .total { font-weight: 700; font-variant-numeric: tabular-nums; }
+.search-form { margin: 24px 0; }
+.search-form .actions { flex-wrap: nowrap; gap: 12px; margin-top: 8px; }
+.button-link { display: inline-block; background: #17664f; color: white; border-radius: 6px; padding: 11px 20px; text-decoration: none; font-weight: 650; }
+.table-scroll { overflow-x: auto; margin: 24px 0; }
+table { border-collapse: collapse; width: 100%; text-align: left; }
+th, td { padding: 14px 10px; border-bottom: 1px solid #d9e1db; vertical-align: top; }
+td p { margin: 5px 0; }
+td input { min-width: 80px; max-width: 100px; }
+td button { display: block; width: 100%; white-space: nowrap; padding: 8px 12px; margin-bottom: 8px; }
+.price { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.checkout-addresses { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-top: 24px; }
+.checkout-addresses .grid { grid-template-columns: 1fr; }
+.summary-line { display: flex; justify-content: space-between; gap: 20px; padding: 12px 0; border-bottom: 1px solid #d9e1db; }
+.confirmation { border-color: #17664f; }
+.confirmation dd { margin: 0 0 16px; overflow-wrap: anywhere; }
+.confirmation dt { font-weight: 700; }
+.account-actions { justify-content: flex-end; margin-bottom: 16px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+@media (max-width: 700px) {
+    .checkout-addresses { grid-template-columns: 1fr; gap: 0; }
+    .site-header nav { justify-content: flex-end; }
+    .locale-control { width: 100%; }
+    th, td { padding: 10px 6px; }
+}

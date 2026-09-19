@@ -5,13 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sign in · Petstore</title>
     <link rel="stylesheet" th:href="@{/css/petstore.css}" href="/css/petstore.css">
+    <script defer src="/assets/storefront.js" th:src="@{/assets/storefront.js}"></script>
 </head>
 <body>
+<header th:replace="~{fragments/storefront :: navigation}"></header>
 <main class="narrow">
-    <p class="brand">Petstore</p>
     <section class="panel">
         <h1>Welcome back</h1>
-        <p>Sign in to manage your account.</p>
+        <p>Sign in to checkout or manage your account.</p>
         <p id="message" class="message" role="status" aria-live="polite"></p>
         <form id="login-form" method="post" th:action="@{/api/auth/login}" class="stack">
             <label>Username <input name="username" autocomplete="username" required autofocus></label>
@@ -23,7 +24,7 @@
     </section>
 </main>
 <script th:inline="javascript">
-    const accountUrl = /*[[@{/account}]]*/ '/account';
+    const shopUrl = /*[[@{/shop}]]*/ '/shop';
     const form = document.getElementById('login-form');
     const message = document.getElementById('message');
     form.addEventListener('submit', async event => {
@@ -38,7 +39,7 @@
             });
             if (response.status === 200) {
                 form.elements.password.value = '';
-                window.location.assign(accountUrl);
+                window.location.assign(shopUrl);
             } else {
                 message.className = 'message error';
                 message.textContent = response.status === 401

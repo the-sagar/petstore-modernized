@@ -7,10 +7,12 @@
     <meta name="_csrf_header" th:content="${_csrf.headerName}">
     <title>Your account · Petstore</title>
     <link rel="stylesheet" th:href="@{/css/petstore.css}" href="/css/petstore.css">
+    <script defer src="/assets/storefront.js" th:src="@{/assets/storefront.js}"></script>
 </head>
 <body>
+<header th:replace="~{fragments/storefront :: navigation}"></header>
 <main>
-    <header><span class="brand">Petstore</span><button id="logout" class="secondary" type="button">Log out</button></header>
+    <div class="actions account-actions"><button id="logout" class="secondary" type="button">Log out</button></div>
     <section class="panel">
         <h1>Your account</h1>
         <p>Update your contact details and preferences.</p>

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="_csrf" th:content="${_csrf.token}">
+    <meta name="_csrf_header" th:content="${_csrf.headerName}">
+    <title>Checkout · Petstore</title>
+    <link rel="stylesheet" href="/css/petstore.css" th:href="@{/css/petstore.css}">
+    <script defer src="/assets/storefront.js" th:src="@{/assets/storefront.js}"></script>
+</head>
+<body data-page="checkout">
+<header th:replace="~{fragments/storefront :: navigation}"></header>
+<main class="storefront">
+    <h1>Checkout</h1>
+<p id="message" class="message" role="status" aria-live="polite">Loading…</p>
+    <section id="empty-cart" class="panel" hidden><p>Your cart is empty.</p><a href="/shop" data-locale-link>Continue shopping</a></section>
+    <div id="checkout-content" hidden>
+        <section class="panel"><h2>Order summary</h2><div id="order-summary"></div>
+            <p class="total">Subtotal: <span id="subtotal"></span></p></section>
+        <section class="panel">
+            <h2>Contact and delivery details</h2>
+            <p class="hint">Fields marked * are required. These addresses apply to this order only.</p>
+            <p>Payment uses the details saved in your <a href="/account" data-locale-link>Account</a>. No card details are entered here.</p>
+            <form id="checkout-form">
+                <fieldset id="checkout-fields" disabled>
+                    <label class="check"><input id="same-as-billing" type="checkbox" checked> Shipping address same as billing</label>
+                    <div class="checkout-addresses">
+                <fieldset id="billing-fields"><legend>Billing contact and address</legend><div class="grid">
+                    <label>First name *<input name="billing.firstName" type="text" autocomplete="billing given-name" required></label>
+                    <label>Last name *<input name="billing.lastName" type="text" autocomplete="billing family-name" required></label>
+                    <label>Email *<input name="billing.email" type="email" autocomplete="billing email" required></label>
+                    <label>Phone<input name="billing.phone" type="tel" autocomplete="billing tel"></label>
+                    <label>Street address *<input name="billing.street1" type="text" autocomplete="billing address-line1" required></label>
+                    <label>Apartment / unit<input name="billing.street2" type="text" autocomplete="billing address-line2"></label>
+                    <label>City *<input name="billing.city" type="text" autocomplete="billing address-level2" required></label>
+                    <label>State / province<input name="billing.stateOrProvince" type="text" autocomplete="billing address-level1"></label>
+                    <label>Postal code *<input name="billing.postalCode" type="text" autocomplete="billing postal-code" required></label>
+                    <label>Country *<input name="billing.country" type="text" autocomplete="billing country-name" required></label>
+                </div></fieldset>
+                <fieldset id="shipping-fields"><legend>Shipping contact and address</legend><div class="grid">
+                    <label>First name *<input name="shipping.firstName" type="text" autocomplete="shipping given-name" required></label>
+                    <label>Last name *<input name="shipping.lastName" type="text" autocomplete="shipping family-name" required></label>
+                    <label>Email *<input name="shipping.email" type="email" autocomplete="shipping email" required></label>
+                    <label>Phone<input name="shipping.phone" type="tel" autocomplete="shipping tel"></label>
+                    <label>Street address *<input name="shipping.street1" type="text" autocomplete="shipping address-line1" required></label>
+                    <label>Apartment / unit<input name="shipping.street2" type="text" autocomplete="shipping address-line2"></label>
+                    <label>City *<input name="shipping.city" type="text" autocomplete="shipping address-level2" required></label>
+                    <label>State / province<input name="shipping.stateOrProvince" type="text" autocomplete="shipping address-level1"></label>
+                    <label>Postal code *<input name="shipping.postalCode" type="text" autocomplete="shipping postal-code" required></label>
+                    <label>Country *<input name="shipping.country" type="text" autocomplete="shipping country-name" required></label>
+                </div></fieldset>
+                    </div>
+                    <button id="place-order" type="submit">Place order</button>
+                </fieldset>
+            </form>
+        </section>
+    </div>
+    <section id="order-confirmation" class="panel confirmation" hidden tabindex="-1" aria-labelledby="confirmation-title">
+        <h2 id="confirmation-title">Order confirmed</h2>
+        <dl><dt>Order ID</dt><dd id="confirmation-id"></dd>
+            <dt>Status</dt><dd id="confirmation-status"></dd>
+            <dt>Total</dt><dd id="confirmation-total"></dd>
+            <dt>Created timestamp</dt><dd id="confirmation-created"></dd></dl>
+        <div class="actions"><a href="/shop" data-locale-link>Continue shopping</a><a href="/cart" data-locale-link>View cart</a></div>
+    </section>
+    <noscript><p class="message">Please enable JavaScript to browse and shop.</p></noscript>
+</main>
+</body>
+</html>

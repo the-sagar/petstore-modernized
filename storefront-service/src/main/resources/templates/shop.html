@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="_csrf" th:content="${_csrf.token}">
+    <meta name="_csrf_header" th:content="${_csrf.headerName}">
+    <title>Shop · Petstore</title>
+    <link rel="stylesheet" href="/css/petstore.css" th:href="@{/css/petstore.css}">
+    <script defer src="/assets/storefront.js" th:src="@{/assets/storefront.js}"></script>
+</head>
+<body data-page="shop">
+<header th:replace="~{fragments/storefront :: navigation}"></header>
+<main class="storefront">
+    <section class="panel">
+        <h1>Find your next companion</h1>
+        <p>Browse the catalog or search for a pet.</p>
+        <form id="search-form" class="search-form" role="search">
+            <label for="search-query">Search products</label>
+            <div class="actions"><input id="search-query" name="q" type="search" placeholder="Try Angelfish" autocomplete="off">
+            <button type="submit">Search</button></div>
+        </form>
+<p id="message" class="message" role="status" aria-live="polite">Loading…</p>
+        <section id="category-section"><h2>Categories</h2><div id="categories" class="cards"></div></section>
+        <section id="search-section" hidden><h2>Search results</h2><div id="search-results" class="cards"></div></section>
+    </section>
+    <noscript><p class="message">Please enable JavaScript to browse and shop.</p></noscript>
+</main>
+</body>
+</html>

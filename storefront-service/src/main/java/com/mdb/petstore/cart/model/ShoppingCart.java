@@ -34,4 +34,8 @@ public class ShoppingCart implements Serializable {
     public synchronized void removeItem(String itemId) {
         quantities.remove(itemId);
     }
+
+    public synchronized void clear() {
+        quantities.clear();
+    }
 }

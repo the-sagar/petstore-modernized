@@ -8,6 +8,25 @@ Findings are based on observed runtime behavior, source inspection, temporary in
 
 The intention is not to catalog every defect in the legacy codebase. It is to identify concrete examples that should influence migration design and regression testing.
 
+
+## Modernization status
+
+| Finding | Status | Current treatment / remaining gap |
+|---|---|---|
+| Duplicate registration through POST forwarding | Corrected | Single transactional registration operation, unique username index, deterministic conflict response |
+| Invalid stateful EJB after failure | Intentionally not reproduced | Stateless services; session contains security state and a small ID/quantity cart |
+| Card type/expiry mapping mismatch | Corrected | Explicit named field mapping and account/registration tests |
+| Country/state inconsistency | Still outstanding | Required fields/email validation exists; no country-aware region validation |
+| Historical expiry choices | Partially corrected | Historical dropdown removed; free-text expiry remains without dynamic expiry validation |
+| Direct password comparison | Corrected | Spring Security and BCrypt password hashes |
+| Fragmented customer persistence | Corrected | Embedded customer aggregate plus separate linked user, registered in one Mongo transaction |
+| Limited observability | Improved for implemented slices | SLF4J business-event logs; future async stages have no implementation/logging yet |
+| Deployment resets data | Intentionally not reproduced | Persistent Mongo volume; catalog seeding skips existing data rather than resetting it |
+| Hard-coded checkout payment | Partially corrected | Payment display data comes from the authenticated customer's account; no hard-coded card sent to orders |
+| Raw Storefront card persistence | Still outstanding | Raw number remains in customer storage; tokenization/storage hardening is not complete |
+
+“Corrected” applies to the migrated implementation, not to patches of the legacy runtime. Remaining semantic-validation and payment gaps are not counted as completed security work.
+
 ---
 
 ## Finding 1 — Duplicate Customer Creation After Registration
@@ -46,7 +65,7 @@ Because `customer.do` interprets `action=create`, the second route invocation re
 - deterministic duplicate-user handling
 - unique username constraint / MongoDB unique index
 - no internal forward that can replay the registration POST
-- regression test reproducing the legacy failure scenario
+- regression coverage for duplicate registration and transaction rollback
 
 ---
 
@@ -84,9 +103,9 @@ A failure can therefore affect subsequent requests in the same user session.
 Direct Cloudscape inspection showed values equivalent to:
 
 ```text
-cardNumber = 0100-001-0001
-cardType   = 01/2001
-expiryDate = Java(TM) Card
+cardNumber = [omitted]
+cardType   = [expiry-like value]
+expiryDate = [card-type label]
 ```
 
 The values in the type and expiry fields are reversed.
@@ -128,15 +147,7 @@ The backend validation checks presence of values but does not enforce a valid re
 
 ### Modernization treatment
 
-The target should avoid reproducing the exact hard-coded model.
-
-Options include:
-
-- country-aware validation
-- country-aware region lists
-- a less restrictive free-text region field with appropriate validation
-
-The chosen approach should remain proportional to the take-home scope.
+The modern forms use free-text country and region fields with required-field/email validation. Country-aware validation or region reference data remains outstanding; semantic consistency is not currently enforced.
 
 ---
 
@@ -150,7 +161,7 @@ Hard-coded reference data becomes invalid over time and can make otherwise valid
 
 ### Modernization treatment
 
-Generate current valid expiry ranges dynamically and validate them server-side.
+The historical dropdown is not reproduced. Modern forms accept free-text expiry values; dynamic current ranges and expiry-date validation remain deferred.
 
 ---
 
@@ -164,7 +175,7 @@ Modern applications should not persist user passwords in a form that can be dire
 
 ### Modernization treatment
 
-Use Spring Security's `PasswordEncoder` abstraction with BCrypt.
+Implemented: Spring Security's `PasswordEncoder` abstraction with BCrypt.
 
 The domain/application service should not contain custom password hashing logic.
 
@@ -238,6 +249,18 @@ A deployment operation can change test data, making runtime investigation harder
 Separate application deployment from database lifecycle.
 
 Schema/index creation and demo data should be explicit and repeatable.
+
+---
+
+## Finding 10 — Hard-Coded / Unsafe Checkout Payment
+
+Targeted legacy source inspection confirmed that the Storefront constructed an order using a hard-coded card rather than the current customer's payment information.
+
+**Partially corrected:** modern checkout derives display information from the authenticated customer's saved account. Order Processing accepts/persists only `cardType` and four-digit `last4`, rejecting raw payment fields. It does not perform payment authorization.
+
+## Current security-hardening gap — Raw Storefront card storage
+
+The modern Storefront customer model still persists the raw card number. Omitting it from account responses and redacting the inter-service order contract does not remove this at-rest exposure. Payment persistence redesign/tokenization is **still outstanding**. No PCI-compliance claim is made.
 
 ---
 
