@@ -41,6 +41,8 @@ public class SecurityConfig {
         provider.setPasswordEncoder(passwordEncoder);
         http.authenticationProvider(provider);
         http.authorizeHttpRequests(authorize -> authorize
+                .requestMatchers("/api/cart", "/api/cart/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/catalog/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/", "/login", "/register", "/css/**", "/assets/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
                 .anyRequest().authenticated());
