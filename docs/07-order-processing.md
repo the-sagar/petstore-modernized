@@ -1,129 +1,89 @@
-# Synchronous checkout and order creation
+# Order processing and fulfilment
 
-**Implemented checkpoint:** authenticated Storefront checkout creates an Order Processing snapshot over HTTP and displays confirmation. Processing stops at `PENDING`; no payment authorization, approval, inventory, fulfilment, or completion runs.
+The implemented lifecycle separates order acceptance, approval and fulfilment. Browser traffic always goes through Storefront.
 
-## Current flow
+## Synchronous checkout
 
 ```mermaid
 sequenceDiagram
     actor Browser
     participant S as Storefront :8080
-    participant C as Storefront session / catalog / account
+    participant C as Session / catalog / account
     participant O as Order Processing :8081
     participant M as MongoDB petstore_orders
-
-    Browser->>S: POST /api/checkout?locale=... (session + CSRF)
+    participant J as Artemis
+    Browser->>S: POST /api/checkout with session and CSRF
     S->>C: Resolve authenticated customer and nonempty cart
-    C-->>S: Current catalog prices, quantities, identity, payment display data
-    S->>S: Build contacts and numbered line snapshots
+    C-->>S: Current prices, quantities and payment display metadata
     S->>O: POST /api/orders using RestClient
-    O->>O: Validate, generate ID and timestamp, calculate total, set PENDING
-    O->>M: Insert Order document
+    O->>O: Validate, generate ID and time, calculate total, set PENDING
+    O->>M: Insert Order
     M-->>O: Persistence acknowledged
+    O->>J: Publish OrderSubmitted with orderId
     O-->>S: 201 with orderId, status, createdAt and totalPrice
-    S->>S: Validate response and clear session cart
-    S-->>Browser: Return 201 and render confirmation
+    S->>S: Validate response and clear cart
+    S-->>Browser: Render confirmation
 ```
 
-The browser never calls port 8081 directly. Supplier is not involved in this flow.
+`POST /api/checkout?locale=en-US` requires authentication and CSRF. The browser supplies `billingInfo` and `shippingInfo` contact snapshots only. Identity/email come from the authenticated User/Customer, quantities from the server session, prices and category/product IDs from current CatalogService results. Sequential line numbers follow deterministic cart order. Catalog fallback remains requested locale → en-US → first detail; EST-15 does not gain a Japanese detail.
 
-## Storefront request and snapshot ownership
+Storefront sends locally owned DTOs through RestClient (default Order Processing URL `http://localhost:8081`, connect/read timeouts 3s/5s). It never reads the orders database.
 
-`POST /api/checkout?locale=en-US` requires an authenticated HTTP session and CSRF. The browser supplies **only** `billingInfo` and `shippingInfo` contact/address snapshots; the page prefills them from `GET /api/account` and permits order-specific edits.
+## Order snapshot and creation contract
 
-| Snapshot value | Authoritative source |
-|---|---|
-| `customerId`, `username`, account `email` | Authenticated principal → Storefront User → Customer |
-| Billing/shipping contacts | Validated checkout request; do not change the saved account |
-| Item IDs and quantities | Server-side ShoppingCart, in its deterministic sorted order |
-| Category/product IDs and `unitPrice` | Current `CatalogService.getItem`, using requested locale resolution |
-| `lineNumber` | Storefront assigns sequential numbers starting at 1 |
-| `locale` | Normalized request locale; defaults to `en-US` |
-| Payment display | Saved customer card type plus derived last4 only |
+`POST /api/orders` accepts customerId, username, email, locale, billingInfo, shippingInfo, payment, and lineItems. Contacts contain names, email, phone and address fields. Payment contains **cardType and last4 only**. Lines contain lineNumber, categoryId, productId, itemId, quantity and unitPrice.
 
-CatalogService remains authoritative for fallback: requested locale → en-US → first available detail. EST-15 has no Japanese item detail; Japanese checkout therefore uses its existing fallback price without synthesizing a detail row.
+Order Processing validates required IDs/contact fields, email format, nonempty lines, unique positive line numbers, positive quantities, nonnegative Decimal128-compatible prices and four-digit last4. It generates UUID/time/status and recalculates total with BigDecimal. Callers cannot supply a trusted total or status. The order-time snapshot is independent of Storefront models; fulfilment progress is persisted alongside it.
 
-Storefront uses its own request/response DTOs and `RestClient`. The base URL and connect/read timeouts are configurable in `storefront-service/src/main/resources/application.properties` (defaults: `http://localhost:8081`, 3 seconds, 5 seconds). There is no order repository or order-service Java dependency in Storefront.
+The response is HTTP 201 with Location `/api/orders/{orderId}` and `{orderId, status, createdAt, totalPrice}`. Its creation status is PENDING even if asynchronous processing advances the persisted document immediately afterward. The Location is an identifier; current reads use the internal Admin API rather than a customer history endpoint.
 
-## Order Processing API and aggregate
-
-`POST /api/orders` is an internal service API without browser session authentication.
-
-Request fields:
-
-- `customerId`, `username`, `email`, `locale`
-- `billingInfo`, `shippingInfo`: first/last name, email, phone, street1/street2, city, stateOrProvince, postalCode, country
-- `payment`: **cardType and last4 only**
-- `lineItems`: lineNumber, categoryId, productId, itemId, quantity, unitPrice
-
-The caller does not supply an order ID, createdAt, status, or trusted totalPrice. Unexpected top-level order fields and unexpected payment fields are rejected.
-
-Order Processing:
-
-1. Validates a nonempty line list, positive quantities/line numbers, unique line numbers, nonblank IDs, required contact fields/email syntax, nonnegative prices, and four-digit last4.
-2. Checks that monetary values can be represented as Decimal128.
-3. Generates a UUID order ID and current timestamp.
-4. Calculates each `unitPrice × quantity` and sums the results using BigDecimal.
-5. Sets status to `PENDING` and inserts one immutable `orders` aggregate in `petstore_orders`.
-6. Returns **201**, a `Location: /api/orders/{orderId}` header, and this response shape:
-
-```json
-{
-  "orderId": "<generated UUID>",
-  "status": "PENDING",
-  "createdAt": "<server timestamp>",
-  "totalPrice": 49.50
-}
-```
-
-The Location identifies the created resource; a GET/order-history API is **not implemented**.
-
-The stored aggregate captures identity, locale, contacts, payment display, line items, createdAt, status, and totalPrice. Embedded records and copied line lists form an order-time snapshot. It has no Storefront class references or DBRefs, and does not query Storefront customer/catalog databases.
-
-The lifecycle enum contains `PENDING`, `APPROVED`, `DENIED`, `SHIPPED_PART`, and `COMPLETED`. Enum membership does not mean transitions are implemented: only initial PENDING creation exists.
-
-## Payment boundary
-
-The legacy hard-coded checkout card is intentionally not reproduced. Storefront derives display information from the authenticated customer's saved account. No raw card number/PAN, CVV, or expiry credentials form part of the inter-service order request. Order Processing persists only `cardType` and `last4` for payment.
-
-Storefront persists only cardType, last4 and expiryDate; checkout uses stored last4 directly. Full numbers are transient write-only registration/account input, and startup migration removes legacy cardNumber fields. Neither service performs payment authorization/tokenization or claims PCI compliance.
-
-## Failure handling
-
-| Condition | Storefront result | Cart |
-|---|---|---|
-| Anonymous request with valid CSRF | 401; UI sends user to login | Unchanged |
-| Missing/invalid CSRF | 403; UI asks user to reload | Unchanged |
-| Empty cart or invalid checkout fields | 400 | Unchanged |
-| Missing required saved checkout/payment information | 409 | Unchanged |
-| Connection failure or timeout | 502, non-sensitive error | Unchanged |
-| Downstream 4xx/5xx | 502; downstream body is not exposed | Unchanged |
-| Malformed/empty response, non-201 response, invalid fields, wrong status/total | 502 | Unchanged |
-| Valid downstream 201 | Returns confirmation; cart is cleared afterward | Empty |
-
-The client also checks the returned total against the submitted line values and requires an order ID, timestamp, and PENDING status. Logs capture creation boundaries, IDs, line counts, and status, not full contacts/payment payloads or downstream exception bodies.
-
-**Limit:** HTTP acknowledgement loss can occur after persistence. Preserving the cart does not roll back a remote order. There is no cross-service transaction, automatic retry, or idempotency key/reconciliation mechanism in this checkpoint.
-
-## Next asynchronous stage — NOT YET IMPLEMENTED
+## Approval and lifecycle
 
 ```mermaid
 flowchart LR
-    P[PENDING] -.->|planned| E[Artemis event]
-    E -.-> A[Approval processing]
-    A -.-> S[Supplier / inventory]
-    S -.-> C[Completion]
+    P[PENDING] -->|Automatic threshold or manual approval| A[APPROVED]
+    P -->|Admin denies| D[DENIED]
+    A -->|Some lines shipped| S[SHIPPED_PART]
+    A -->|All lines shipped| C[COMPLETED]
+    S -->|Remaining lines shipped| C
 ```
 
-Verified legacy automatic-approval thresholds to revisit for parity:
+OrderSubmitted on `petstore.order.submitted` contains only orderId. The listener reloads Mongo state and handles only PENDING orders. `ApprovalPolicy` uses BigDecimal.compareTo with strict thresholds:
 
-- `en-US`: total **< 500**
-- `ja-JP`: total **< 50000**
+| Locale | Automatically approve | Otherwise |
+|---|---|---|
+| en-US | total < 500 | Remain PENDING |
+| ja-JP | total < 50000 | Remain PENDING |
+| Any other locale | Never automatically | Remain PENDING |
 
-These rules do not execute today. Manual approval, message contracts, delivery/idempotency behavior, stock allocation, replenishment, invoices, and completion are future work. Approval and fulfilment remain distinct concepts established by the legacy investigation.
+Storefront `/admin/orders` proxies internal `/api/admin/orders` list/detail and `/{orderId}/approve` or `/deny` POSTs. Admin can filter all five statuses. Unknown IDs return 404 and non-PENDING decisions return 409. Automatic and manual approval share `OrderApprovalService`: an atomic PENDING → APPROVED update, then InventoryRequested publication. Denial atomically sets DENIED and publishes no inventory work. Concurrent decisions have one winner.
 
-## Verification
+## Supplier allocation and invoice replacement
 
-Order creation tests use isolated Mongo databases and verify generated values, PENDING persistence, exact decimal totals, snapshot contents, and rejection rules. Storefront checkout tests use `MockRestServiceServer` to inspect outbound JSON and exercise success, HTTP errors, connection failures, timeouts, and invalid responses without running Order Processing in-process.
+`petstore.inventory.requested` carries `{orderId, lines: [{lineNumber, itemId, quantity}]}` without prices, contacts or payment. Supplier uniquely persists orderId and verifies repeated requests match the original lines.
 
-Page tests and a separate mocked-API browser smoke check cover the customer confirmation flow. These complement, rather than replace, a live multi-process demo. See [README testing](../README.md#testing).
+For every outstanding line, Supplier conditionally decrements stock only when quantity is sufficient for the **whole remaining line**. Insufficient/missing inventory ships none of that line, while other lines can ship. Mongo transactions commit stock, line progress and shipment history together. Quantity cannot become negative through concurrent allocation. SupplierOrder stays PENDING until all lines ship, then becomes COMPLETED.
+
+Each successful pass records a UUID eventId, time, shipped lines and completion flag. It publishes `petstore.inventory.fulfilled` with `{eventId, orderId, shippedLines: [{lineNumber, itemId, quantity}], complete}`. No-new-shipment passes need not publish anything. This typed JSON message and persisted shipment history replace the business effect of legacy XML invoices, not invoice rendering.
+
+Order Processing checks event IDs, line identity and quantities, rejects over-fulfilment and derives status from cumulative shipped amounts. Some lines shipped means SHIPPED_PART, all means COMPLETED. Duplicate events do not increment quantities again; optimistic concurrency protects competing updates. PENDING/DENIED/COMPLETED states remain protected from inappropriate transitions.
+
+Supplier inventory is seeded from the original legacy XML: EST-1 through EST-29, 10000 each. Existing stock is not reset. `PUT /api/inventory/{itemId}` sets an exact nonnegative quantity. A positive update retries pending work and returns authoritative stock, which may already be lower after allocation. `POST /api/inventory/retry-pending` invokes the same algorithm. Supplier users access these through Storefront `/supplier/inventory` and `/supplier/orders`, never directly through port 8082.
+
+## Payment and failure handling
+
+Storefront stores only card type, last4 and expiry metadata. Full numbers are transient write-only registration/account input; startup migration removes legacy cardNumber. Checkout uses saved last4 directly. Orders contain no PAN/CVV. No payment authorization/tokenization or PCI compliance is claimed.
+
+| Failure | Outcome |
+|---|---|
+| Empty cart / invalid checkout | Client error, cart retained |
+| Missing saved customer/payment data | Deterministic client error, cart retained |
+| HTTP timeout, connection error, downstream 4xx/5xx or invalid response | Non-sensitive 502, cart retained |
+| Valid downstream 201 | Clear cart and confirm acceptance |
+| OrderSubmitted send fails after insert | PENDING remains persisted, creation can fail and caller retry risks another order |
+| InventoryRequested send fails after approval | APPROVED remains, API/listener may fail, replay/reconciliation required |
+| InventoryFulfilled send fails after Supplier commit | Stock/progress/history remain committed, do not allocate those lines again |
+
+Transacted JMS listeners let thrown processing failures use broker redelivery. Missing order IDs are handled without phantom records. Broker redelivery does not close the Mongo/JMS publication gap: a repeated delivery may find already-committed state and perform no new send. There is no outbox or automatic reconciliation. Recorded shipment events can support future controlled replay with their original event IDs.
+
+Tests cover decimal calculations, HTTP failure semantics, policy boundaries, atomic decisions, concurrency, allocation, duplicate events, partial fulfilment and replenishment. Follow the [live verification runbook](09-demo-and-verification.md) for the multi-service scenarios.

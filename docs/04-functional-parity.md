@@ -45,20 +45,33 @@ Seed counts: **5 categories, 16 products, 28 items**, with **15 category, 48 pro
 
 ## Order processing, Admin, and Supplier
 
-| Capability | Verified legacy behavior | Current status / remaining work |
+| Capability | Current modernization | Status |
 |---|---|---|
-| Order acceptance | OPC persists PurchaseOrder and starts PENDING | Implemented: immutable snapshot, server-generated ID/time/status and recalculated total |
-| Order lifecycle | PENDING, APPROVED, DENIED, SHIPPED_PART, COMPLETED | Partially implemented: enum exists; only PENDING creation is implemented |
-| Async transport | JMS / MDB processing | Not yet implemented: future Artemis + Spring JMS |
-| Auto-approval | en-US total < 500; ja-JP total < 50000 | Not yet implemented; no threshold rules run today |
-| Manual/Admin approval and commit | Verified | Not yet implemented; no admin API/UI |
-| Fulfilment/invoice/completion | Distinct from approval | Not yet implemented |
-| Supplier boundary | Separate legacy subsystem | Partially implemented: independently bootstrappable service only |
-| Inventory, allocation, out-of-stock, replenishment | Verified supplier behavior | Not yet implemented; no business documents, endpoints, or calls |
-| Order querying/history and Admin statistics | Legacy order-management/reporting | Deferred; confirmation panel is not an order-history feature |
+| Order acceptance | HTTP snapshot creation, generated ID/time, PENDING and recalculated BigDecimal/Decimal128 total | Implemented |
+| Async transport | Artemis 2.57.0 and Spring JMS | Implemented |
+| Auto-approval | Strict en-US < 500 and ja-JP < 50000, unsupported locales remain pending | Implemented |
+| Manual Admin decisions | ROLE_ADMIN UI/proxy, status filtering, atomic PENDING approve/deny using shared approval boundary | Implemented |
+| Order lifecycle | PENDING → APPROVED → SHIPPED_PART/COMPLETED, or PENDING → DENIED | Implemented |
+| Supplier | Separate service and database, InventoryRequested/InventoryFulfilled | Implemented |
+| Stock and allocation | EST-1 through EST-29 seeded at 10000, conditional stock decrement, whole outstanding line or none | Implemented |
+| Partial fulfilment/out-of-stock | Available lines ship independently, unavailable lines remain outstanding | Implemented |
+| Replenishment | Exact stock replacement and automatic pending-order retry, optional explicit retry | Implemented |
+| Supplier UI | ROLE_SUPPLIER inventory filter/update, pending/completed details and shipment history | Implemented |
+| Invoice business effect | Typed JSON event and persisted shipment-pass history replace legacy XML transformation | Implemented replacement |
+| Duplicate delivery | Persisted supplier progress and order fulfilment event IDs prevent double allocation/application | Implemented |
 
-## Optional / deferred capabilities
+## Actual remaining parity gaps and deliberate exclusions
 
-JWSDP/JAX-RPC variants, optional email notifications, and alternate relational database configurations are not migrated. Java Web Start technology is not being reproduced. Payment tokenization, production service-access controls, and operational hardening are separate follow-up work.
+| Capability | Status |
+|---|---|
+| Optional legacy email notifications | Not implemented |
+| Admin statistics/revenue charts | Not implemented |
+| Favorite Category/My List behavior | Not implemented as a customer feature; saved preferences alone do not implement it |
+| Full UI translation | Not implemented; catalog locale data/fallback is implemented |
+| Customer order history | Deferred; Admin queries and confirmation are separate features |
+| Country-aware region and expiry-date semantic validation | Deferred |
+| JWSDP/JAX-RPC variants, alternate relational databases, Swing/Web Start | Intentionally not reproduced |
+| Real payment authorization/tokenization | Outside demo scope; raw-card persistence is removed |
+| Outbox/reconciliation, service authentication/TLS, production secrets/HA | Production-hardening work |
 
-See [legacy observations](01-legacy-system-overview.md), [defect status](03-legacy-defects.md), and [current order flow](07-order-processing.md). Tests verify the implemented slices; they do not demonstrate deferred asynchronous functionality.
+See [legacy observations](01-legacy-system-overview.md), [defect status](03-legacy-defects.md), and [current order flow](07-order-processing.md). Local tests and demos demonstrate implemented behavior, not production readiness.

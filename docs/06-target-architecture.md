@@ -1,82 +1,63 @@
-# Target architecture
+# Current target architecture
 
-## Architectural principles
+## Principles and service boundaries
 
-- **Incremental, strangler-style migration:** verify legacy behavior, migrate a bounded vertical slice, and test it before moving forward. This describes migration sequencing; a live routing proxy between legacy and modern systems is not implemented.
-- Preserve business outcomes rather than obsolete EJB, CMP, JSP, or MDB mechanisms.
-- Use independently deployable service boundaries with explicit database ownership.
-- No cross-service repositories, shared Mongo entity modules, or Java/Maven dependencies between services.
-- Use synchronous communication where an immediate response is required.
-- Preserve the legacy asynchronous business boundary through messaging **when that stage is implemented**.
-- Correct confirmed defects deliberately and document remaining gaps.
+Migration was incremental and strangler-style: verify a legacy vertical slice, preserve its business outcome, replace obsolete mechanisms, then test before proceeding. This is a migration approach, not a claim of a deployed legacy/modern routing gateway.
 
-## Services
+Three deployables follow meaningful legacy Storefront / OPC / Supplier boundaries. Features within a service are packages, not additional microservices. There are no shared Mongo entities, cross-service repository calls or service-to-service Maven dependencies. Each service owns its DTOs and database.
 
-| Service | Implemented now | Deferred responsibilities |
+| Service | Responsibilities | Database |
 |---|---|---|
-| Storefront (`:8080`) | Identity/session authentication, account/customer, catalog/search, session cart, checkout orchestration, Thymeleaf UI | Further checkout/payment hardening |
-| Order Processing (`:8081`) | Order aggregate, create API, validation, generated ID/time, PENDING persistence, total calculation | Approval, lifecycle transitions, fulfilment orchestration, asynchronous processing |
-| Supplier (`:8082`) | Application bootstrap, Mongo configuration, startup test | Inventory, allocation, replenishment, supplier processing |
+| Storefront :8080 | Identity, account, catalog, session cart, checkout, customer/Admin/Supplier browser UI and operational HTTP proxies | `petstore_storefront` |
+| Order Processing :8081 | Order snapshots, total calculation, approval/denial and fulfilment lifecycle | `petstore_orders` |
+| Supplier :8082 | Inventory, allocation, pending fulfilments, shipment history and replenishment | `petstore_supplier` |
 
-Supplier's database ownership is configured, but no business data or workflow has been migrated yet.
-
-## Current communication
+## Implemented communication
 
 ```mermaid
 flowchart LR
-    B[Browser] -->|pages and same-origin REST| S[Storefront :8080]
-    S -->|POST /api/orders via RestClient| O[Order Processing :8081]
+    C[Customer browser] --> S[Storefront :8080]
+    A[Admin browser] --> S
+    U[Supplier browser] --> S
+    S -->|HTTP checkout and Admin API| O[Order Processing :8081]
+    S -->|HTTP inventory and fulfilment API| P[Supplier :8082]
+    O -->|OrderSubmitted and InventoryRequested| J[Artemis :61616]
+    J -->|OrderSubmitted| O
+    J -->|InventoryRequested| P
+    P -->|InventoryFulfilled| J
+    J -->|InventoryFulfilled| O
     S --> SD[(petstore_storefront)]
     O --> OD[(petstore_orders)]
-    P[Supplier :8082 - scaffold only]
+    P --> PD[(petstore_supplier)]
 ```
 
-The browser uses Storefront exclusively. Storefront authenticates checkout and constructs the order-time snapshot. Order Processing validates and persists it, then responds synchronously. HTTP DTOs are local to each service; matching JSON shapes do not create shared Java ownership.
+Browsers interact only with Storefront. RestClient provides synchronous acknowledgement for checkout and operational requests, with configurable URLs and timeouts. ROLE_ADMIN and ROLE_SUPPLIER protect their respective Storefront pages/proxies; CSRF protects mutations. Backend operational APIs are internal and do not yet have service-to-service authentication/TLS.
 
-Order Processing is currently an internal API without browser-session authentication. A production service-authentication/authorization scheme is not part of this checkpoint.
+JMS queues are `petstore.order.submitted`, `petstore.inventory.requested`, and `petstore.inventory.fulfilled`. Messages contain only workflow identifiers and required fulfilment quantities, never customer contacts or payment data. Spring JMS transacted listener sessions acknowledge successful processing; thrown failures use broker redelivery semantics. There is no custom DLQ tooling.
 
-## Future async communication — not yet implemented
+## Data and transaction boundaries
 
-```mermaid
-flowchart LR
-    O[Order Processing - accepted PENDING order] -.->|FUTURE publication| A[ActiveMQ Artemis - planned]
-    A -.->|FUTURE Spring JMS| W[Approval and order-processing flows]
-    W -.->|FUTURE messages via Artemis| S[Supplier / inventory flows]
-    S -.->|FUTURE results via Artemis| O
-```
+Storefront owns `users`, `customers`, `categories`, `products`, and `items`. Localized catalog details are embedded; session carts store IDs/quantities rather than persisted snapshots. Registration commits users/customers in one Mongo transaction. Catalog seed data excludes legacy users/payment details.
 
-This is a conceptual boundary, not a finalized queue/topic topology. No broker appears in Compose; no JMS publisher/listener, approval logic, supplier call, or inventory flow exists yet. Message contracts, retries, delivery guarantees, and idempotency remain to be designed and tested.
+Order Processing owns `orders`: immutable order-time identity/contact/line/payment snapshots plus mutable workflow progress. BigDecimal money is stored as Decimal128. Supplier owns `inventory` and `supplierOrders`, including shipment-pass history. Supplier commits conditional inventory decrements and fulfilment progress/history in a local Mongo transaction. None of these transactions spans services or JMS.
 
-## Data ownership
+## Idempotency and concurrent work
 
-| Database | Exclusive service owner | Aggregate/data boundary |
-|---|---|---|
-| `petstore_storefront` | Storefront | Users, customers, catalog; cart remains in HTTP session |
-| `petstore_orders` | Order Processing | Immutable order-time snapshots and initial status |
-| `petstore_supplier` | Supplier | Reserved for future supplier/inventory domain data |
+- Atomic PENDING-only approval/denial lets one concurrent decision win. Automatic and manual approval reuse `OrderApprovalService`; only its successful transition publishes inventory work.
+- Supplier order ID uniqueness and persisted line progress prevent duplicate requests from allocating shipped lines twice. Conditional quantity checks prevent overselling; transactional/version conflicts retry only aborted work.
+- Each shipment pass has a stable event ID. Order Processing persists processed IDs with shipped quantities and uses optimistic concurrency to prevent duplicate fulfilment application.
+- Status is derived from cumulative line progress. PENDING/DENIED orders cannot be completed by inappropriate inventory messages.
 
-An order embeds contacts, display-only payment information, and line snapshots. It does not hold DBRefs to Storefront documents. Monetary values use `BigDecimal`, with explicit Decimal128 persistence for catalog prices and order amounts.
+## Failure boundaries and known gaps
 
-Registration is a Mongo transaction within Storefront's database. Order creation inserts one aggregate within Order Processing's database. There is no distributed transaction across the HTTP boundary.
+Storefront clears the cart only after validating a downstream 201 response. Timeouts, connection failures, invalid responses and downstream errors preserve it. An acknowledgement can be lost after persistence, so checkout retry can create another order; request-level idempotency is not implemented.
 
-## Failure boundaries
+Mongo writes precede JMS publication. A send failure leaves the committed PENDING order, APPROVED decision, or Supplier shipment intact. There is no transactional outbox. Failed publication needs replay/reconciliation; repeating Supplier allocation does not resend an already recorded shipment automatically. Duplicate-safe consumption is not an exactly-once guarantee. See [order processing](07-order-processing.md).
 
-Storefront retains its cart until Order Processing returns a valid HTTP 201 response with an order ID, timestamp, PENDING status, and matching total. Connection failures, timeouts, downstream 4xx/5xx, malformed responses, and unexpected response values produce a non-sensitive checkout error and preserve the cart.
+Storefront stores payment display metadata only and migrates away legacy raw numbers. Orders receive card type/last4 only. There is no payment authorization or PCI-compliance claim.
 
-A timeout or lost response does not prove the remote write failed: Order Processing may already have persisted the order. Cross-request checkout idempotency/reconciliation is not implemented, so retries are not claimed to be exactly-once. See [order processing](07-order-processing.md).
+## Local versus production infrastructure
 
-Only card type and last4 cross this boundary. Storefront persists display metadata (card type, last4, expiry), accepts full numbers only transiently, and removes legacy cardNumber fields on startup. This demo performs no payment authorization and makes no PCI-compliance claim.
+One MongoDB 7 container hosts three logical databases in a single-node `rs0` replica set, enabling local transactions. One Artemis 2.57.0 broker uses a persistent volume and a 128–256 MB configured heap. Neither setup demonstrates production HA.
 
-## Why three services
-
-The decomposition follows meaningful legacy subsystem/domain boundaries: Storefront, OPC, and Supplier. Identity, customer, catalog, and cart remain cohesive features within Storefront; they are not separate deployables merely because they have separate packages or entities.
-
-Separate service artifacts and local DTOs make ownership explicit without introducing a gateway or shared domain library. Supplier is scaffolded to establish the boundary, not to imply finished supplier behavior.
-
-## Local vs production infrastructure
-
-Locally, one MongoDB 7 container hosts logical databases under a single-node `rs0` replica set. This is a development optimization that enables transaction tests, not evidence of high availability, production scale, or operational readiness.
-
-Separate clusters/deployments could be configured later without changing logical data ownership. Database credentials/isolation, service access controls, TLS, resilience policies, observability operations, and payment storage hardening would need production-specific work. None is implied by this local demo.
-
-For actual startup commands and replica-set initialization, see the [README](../README.md).
+Separate clusters could be deployed later without changing ownership. Service authentication/TLS, production secrets, HA deployments, outbox/reconciliation and recovery operations remain hardening work. See [installation](08-installation-and-setup.md) and [demo](09-demo-and-verification.md).

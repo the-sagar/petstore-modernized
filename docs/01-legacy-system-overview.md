@@ -181,7 +181,7 @@ InvoiceMDB
 Order completion
 ```
 
-This distinction is important to the target design: messaging will only be introduced where there is a genuine asynchronous business boundary.
+This distinction is important to the target design: messaging is used for the genuine asynchronous approval and fulfilment boundaries, while account operations remain synchronous.
 
 ---
 
@@ -240,7 +240,7 @@ These include:
 - optional email notification configuration
 - alternate relational database configurations
 
-These capabilities were identified but are not included in the initial modernization scope unless later required for functional parity.
+These optional capabilities were identified but remain outside the completed migration scope.
 
 ---
 
@@ -259,11 +259,13 @@ The baseline produces several concrete design implications:
 
 ## Modern target mapping
 
-| Verified legacy subsystem | Modern boundary | Current status |
+| Verified legacy subsystem | Modern boundary | Implemented behavior |
 |---|---|---|
-| Storefront | `storefront-service` | Implemented: account/authentication, catalog/search, session cart, checkout orchestration, customer UI |
-| Order Processing Center (OPC) | `order-processing-service` | Implemented: synchronous order creation and initial `PENDING` persistence; later lifecycle processing deferred |
-| Supplier | `supplier-service` | Service scaffold only; inventory and supplier business processing not implemented |
-| JMS / EJB MDB boundary | Future ActiveMQ Artemis + Spring JMS | Planned; no broker, publishers, or listeners yet |
+| Storefront | `storefront-service` | Account/authentication, catalog/search, cart, checkout and browser UIs |
+| Order Processing Center (OPC) | `order-processing-service` | Order creation, automatic/manual approval, denial and fulfilment progress |
+| Supplier | `supplier-service` | Inventory, atomic allocation, partial fulfilment, replenishment and shipment history |
+| JMS / EJB MDB boundary | ActiveMQ Artemis + Spring JMS | OrderSubmitted, InventoryRequested and InventoryFulfilled queues |
+| Swing/Web Start Admin | Storefront Admin UI and HTTP proxy | Status filtering and individual approve/deny decisions |
+| XML invoices | Typed fulfilment events and shipment-pass history | Records exactly which lines shipped in each pass |
 
-The modern Storefront currently submits orders over synchronous HTTP so it can confirm persistence before clearing the cart. This deliberately differs from the legacy checkout transport while leaving later approval/fulfilment as a planned asynchronous business boundary. See [target architecture](06-target-architecture.md) and [order processing](07-order-processing.md). The legacy approval, replenishment, and completion observations in this document are **not claims of implemented modern functionality**.
+Storefront submits orders synchronously over HTTP to confirm acceptance before clearing the cart. Subsequent approval and fulfilment preserve the asynchronous business boundary. See [current architecture](06-target-architecture.md), [order processing](07-order-processing.md), and [parity gaps](04-functional-parity.md).

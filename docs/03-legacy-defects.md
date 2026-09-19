@@ -20,9 +20,9 @@ The intention is not to catalog every defect in the legacy codebase. It is to id
 | Historical expiry choices | Partially corrected | Historical dropdown removed; free-text expiry remains without dynamic expiry validation |
 | Direct password comparison | Corrected | Spring Security and BCrypt password hashes |
 | Fragmented customer persistence | Corrected | Embedded customer aggregate plus separate linked user, registered in one Mongo transaction |
-| Limited observability | Improved for implemented slices | SLF4J business-event logs; future async stages have no implementation/logging yet |
+| Limited observability | Improved for implemented slices | SLF4J business-event logs; approval, inventory and fulfilment events include business identifiers |
 | Deployment resets data | Intentionally not reproduced | Persistent Mongo volume; catalog seeding skips existing data rather than resetting it |
-| Hard-coded checkout payment | Partially corrected | Payment display data comes from the authenticated customer's account; no hard-coded card sent to orders |
+| Hard-coded checkout payment | Corrected | Payment display data comes from the authenticated customer's account; no hard-coded card sent to orders |
 | Raw Storefront card persistence | Corrected | Display metadata only; startup migration removes legacy cardNumber fields. No payment authorization/tokenization is implemented |
 
 “Corrected” applies to the migrated implementation, not to patches of the legacy runtime. Remaining semantic-validation and payment gaps are not counted as completed security work.
@@ -256,7 +256,7 @@ Schema/index creation and demo data should be explicit and repeatable.
 
 Targeted legacy source inspection confirmed that the Storefront constructed an order using a hard-coded card rather than the current customer's payment information.
 
-**Partially corrected:** modern checkout derives display information from the authenticated customer's saved account. Order Processing accepts/persists only `cardType` and four-digit `last4`, rejecting raw payment fields. It does not perform payment authorization.
+**Corrected:** modern checkout derives display information from the authenticated customer's saved account. Order Processing accepts/persists only `cardType` and four-digit `last4`, rejecting raw payment fields. It does not perform payment authorization.
 
 ## Corrected — Raw Storefront card storage
 

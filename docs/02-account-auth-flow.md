@@ -33,7 +33,7 @@ The local `rs0` replica set enables transaction semantics. A failed user write r
 
 ## Sign-in and session — implemented
 
-`POST /api/auth/login` accepts form credentials. Spring Security's authentication provider loads the user through `MongoUserDetailsService` and checks the BCrypt hash. Success returns JSON; the login page navigates to `/shop`. Invalid credentials return 401.
+`POST /api/auth/login` accepts form credentials. Spring Security's authentication provider loads the user through `MongoUserDetailsService` and checks the BCrypt hash. Success returns JSON; the login page selects `/admin/orders` for ADMIN, then `/supplier/inventory` for SUPPLIER, otherwise `/shop` (in that precedence). Invalid credentials return 401.
 
 Authentication uses an HTTP session, not a JWT. Session-fixation protection retains the existing anonymous cart during login, as covered by the page/session-handoff test. The cart itself stores only item IDs and quantities. Business services are not EJB objects held in the session.
 
@@ -52,11 +52,11 @@ Logout also ends the session-scoped cart. There is no durable cart persistence o
 
 ## CSRF and validation boundaries
 
-CSRF remains enabled for account PUT, cart writes, checkout POST, and logout POST. Registration and login are explicitly exempted by the existing configuration. Thymeleaf pages read the request's CSRF token/header and include them on protected JavaScript mutations.
+CSRF remains enabled for account PUT, cart writes, checkout POST, Admin/Supplier mutations, and logout POST. Registration and login are explicitly exempted by the existing configuration. Thymeleaf pages read the request's CSRF token/header and include them on protected JavaScript mutations.
 
 Required contact/address fields and email syntax are validated. Country and state/province remain independent text fields: country-aware semantic validation is **not implemented**. The expiry field is not backed by dynamic expiry-range validation.
 
-## Payment security: partially corrected
+## Payment storage hardening — implemented
 
 The customer account stores only `cardType`, `last4`, and `expiryDate`. Registration/account requests accept a number transiently, validate its format and derive last4. Blank account input preserves existing last4; nonblank input replaces it. The page displays the saved type and last four digits while keeping the number input empty. Registration permits missing payment metadata, but checkout requires usable saved display information.
 
@@ -66,4 +66,8 @@ Checkout reads stored `cardType` and `last4` directly. A startup Mongo migration
 
 Tests cover registration success, duplicate handling and rollback, authentication/logout, account ownership/update, CSRF, and session retention. Business-event logs identify users/customers and outcomes without intentionally logging passwords or full payment payloads.
 
-Messaging is not part of this synchronous slice. See [order processing](07-order-processing.md) for the implemented HTTP boundary and the separate, planned asynchronous stage.
+Messaging is not part of this synchronous slice. See [order processing](07-order-processing.md) for the implemented HTTP boundary and asynchronous approval/fulfilment stage.
+
+## Operational roles
+
+Storefront protects `/admin/**` and `/api/admin/**` with ROLE_ADMIN, and `/supplier/**` and `/api/supplier/**` with ROLE_SUPPLIER. ADMIN alone does not grant Supplier access. Registration creates CUSTOMER only. Bootstrap creates enabled BCrypt-backed operational users without Customer records and leaves existing usernames unchanged. Local defaults and environment overrides are documented in [setup](08-installation-and-setup.md#environment-and-demo-accounts).
