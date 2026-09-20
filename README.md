@@ -34,17 +34,19 @@ petstore-modernized/
   order-processing-service/    # orders and lifecycle
   supplier-service/            # inventory and fulfilment
   docs/                        # verified findings, architecture, setup, demo
-  compose.yaml                 # MongoDB and Artemis
+  compose.yaml                 # MongoDB, Artemis and Mailpit
   pom.xml                      # Maven parent/aggregator
   mvnw, mvnw.cmd, .mvn/         # Maven wrapper
 ```
 
 ## Quick start
 
+**New Windows machine, no IDE?** Follow the [Windows PowerShell installation guide](docs/08-installation-and-setup.md#windows-1011-with-powershell), then run the [external functional-verification exercise](docs/10-functional-verification.md).
+
 Prerequisites: Git, **Java 21**, Docker Desktop/Compose; IntelliJ IDEA is optional. No separately installed Maven is required.
 
 1. Clone `https://github.com/the-sagar/petstore-modernized.git` and enter the repository.
-2. Run `docker compose up -d mongodb artemis`.
+2. Run `docker compose up -d mongodb artemis mailpit`.
 3. Initialize Mongo `rs0` **once on a fresh volume**, and verify a writable primary using the [platform-specific setup guide](docs/08-installation-and-setup.md).
 4. Build: macOS `./mvnw clean verify`; Windows PowerShell `.\mvnw.cmd clean verify`.
 5. In three terminals, run the wrapper with `-pl storefront-service spring-boot:run`, `-pl order-processing-service spring-boot:run`, and `-pl supplier-service spring-boot:run`.
@@ -84,13 +86,13 @@ Override Storefront bootstrap with `PETSTORE_ADMIN_USERNAME`, `PETSTORE_ADMIN_PA
 
 ## Testing
 
-Last reported baseline: **215 passing tests**. Final verification in this documentation pass could not reconfirm it because local Docker/MongoDB was unavailable; see the setup troubleshooting guide. Run `./mvnw clean verify` (macOS) or `.\mvnw.cmd clean verify` (PowerShell) from the root. MongoDB must be running with `rs0` initialized. Tests use isolated Mongo databases; JMS/HTTP boundaries are mocked or isolated where applicable, so the regular suite does not require browser interaction or a live Artemis broker.
+Expect **BUILD SUCCESS** with no failing tests; record the totals from your run rather than relying on a historical count. This documentation-only update does not claim a new test run or Windows execution. Run `./mvnw clean verify` (macOS) or `.\mvnw.cmd clean verify` (PowerShell) from the root. MongoDB must be running with `rs0` initialized. Tests use isolated Mongo databases; JMS/HTTP boundaries are mocked or isolated where applicable, so the regular suite does not require browser interaction or a live Artemis broker.
 
-Coverage includes registration rollback/authentication, catalog parsing/seeding/locales, session isolation/CSRF, checkout HTTP failures, order validation/decimal persistence, concurrent approval and stock allocation, duplicate fulfilment, replenishment, role bootstrap/proxies/pages and raw-BSON payment migration assertions. See the [live demo runbook](docs/09-demo-and-verification.md).
+Coverage includes registration rollback/authentication, catalog parsing/seeding/locales, session isolation/CSRF, checkout HTTP failures, order validation/decimal persistence, concurrent approval and stock allocation, duplicate fulfilment, replenishment, role bootstrap/proxies/pages and raw-BSON payment migration assertions. Use the [external functional-verification exercise](docs/10-functional-verification.md) for current browser checks.
 
 ## Deliberate limits and deferred work
 
-Admin statistics, Favorite Category/My List behavior, full UI translation and customer order history are not implemented. Legacy invoice XML is intentionally replaced by typed fulfilment events and persisted shipment history.
+Favorite Category/My List behavior and full UI translation are not implemented. Legacy invoice XML is intentionally replaced by typed fulfilment events and persisted shipment history.
 
 Production hardening remains: transactional outbox/reconciliation for Mongo/JMS gaps, checkout retry idempotency, service-to-service authentication/TLS, secrets management, HA Mongo/Artemis deployment and operational recovery. The local one-node replica set supports transactions, not production HA. No payment gateway or Kubernetes/cloud deployment is claimed or required.
 
@@ -107,6 +109,7 @@ AI assisted scaffolding, implementation, investigation and tests. Human decision
 7. [Order processing and fulfilment](docs/07-order-processing.md)
 8. [Installation and setup — macOS / Windows](docs/08-installation-and-setup.md)
 9. [Demo and verification runbook](docs/09-demo-and-verification.md)
+10. [External functional-verification exercise — current browser flows](docs/10-functional-verification.md)
 
 ## Optional local email
 
@@ -122,7 +125,7 @@ A final shipment requests both shipped and completed emails. Its listener reload
 from `petstore_orders` and uses the immutable checkout email. Shipment emails identify the
 persisted fulfilment event; the Order stores cumulative quantities, not per-pass line details.
 
-Email is opt-in and best-effort. SMTP and notification publication failures are logged without
+Email is configurable and best-effort; the current checked-in `NOTIFICATION_ENABLED` default is `true`. SMTP and notification publication failures are logged without
 undoing business state. SMTP failures are acknowledged without automatic retry. Mongo updates
 and JMS sends are not atomic: a crash/publication failure can lose a notification, and JMS
 redelivery or a crash after SMTP acceptance can duplicate email. There is no outbox,
