@@ -3,8 +3,10 @@ package com.mdb.petstore.catalog.model;
 import java.util.List;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+@CompoundIndex(name = "categoryId_id", def = "{'categoryId': 1, '_id': 1}")
 @Document(collection = "products")
 public class Product {
 

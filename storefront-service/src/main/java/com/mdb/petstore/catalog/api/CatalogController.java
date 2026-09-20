@@ -2,6 +2,7 @@ package com.mdb.petstore.catalog.api;
 
 import java.util.List;
 
+import com.mdb.petstore.catalog.dto.CatalogPage;
 import com.mdb.petstore.catalog.dto.CategoryResponse;
 import com.mdb.petstore.catalog.dto.ItemResponse;
 import com.mdb.petstore.catalog.dto.ProductResponse;
@@ -35,9 +36,10 @@ public class CatalogController {
     }
 
     @GetMapping("/categories/{categoryId}/products")
-    public List<ProductResponse> getProductsByCategory(@PathVariable String categoryId,
-            @RequestParam(defaultValue = "en-US") String locale) {
-        return catalogService.getProductsByCategory(categoryId, locale);
+    public CatalogPage<ProductResponse> getProductsByCategory(@PathVariable String categoryId,
+            @RequestParam(defaultValue = "en-US") String locale,
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "2") int size) {
+        return catalogService.getProductsByCategory(categoryId, locale, page, size);
     }
 
     @GetMapping("/products/{productId}")
@@ -47,9 +49,10 @@ public class CatalogController {
     }
 
     @GetMapping("/products/{productId}/items")
-    public List<ItemResponse> getItemsByProduct(@PathVariable String productId,
-            @RequestParam(defaultValue = "en-US") String locale) {
-        return catalogService.getItemsByProduct(productId, locale);
+    public CatalogPage<ItemResponse> getItemsByProduct(@PathVariable String productId,
+            @RequestParam(defaultValue = "en-US") String locale,
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "2") int size) {
+        return catalogService.getItemsByProduct(productId, locale, page, size);
     }
 
     @GetMapping("/items/{itemId}")
@@ -59,8 +62,9 @@ public class CatalogController {
     }
 
     @GetMapping("/search")
-    public List<ProductResponse> searchProducts(@RequestParam(defaultValue = "") String q,
-            @RequestParam(defaultValue = "en-US") String locale) {
-        return catalogService.searchProducts(q, locale);
+    public CatalogPage<ProductResponse> searchProducts(@RequestParam(defaultValue = "") String q,
+            @RequestParam(defaultValue = "en-US") String locale,
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "2") int size) {
+        return catalogService.searchProducts(q, locale, page, size);
     }
 }

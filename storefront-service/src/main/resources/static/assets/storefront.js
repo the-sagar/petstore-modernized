@@ -21,8 +21,10 @@
         }
         selector.value = locale;
         selector.addEventListener('change', () => {
-            current.searchParams.set('locale', selector.value);
-            window.location.assign(current.pathname + current.search);
+            const address = new URL(window.location.href);
+            address.searchParams.set('locale', selector.value);
+            address.searchParams.delete('page');
+            window.location.assign(address.pathname + address.search);
         });
     }
 
@@ -107,32 +109,60 @@
         }
     }
 
+    function pagingState(result, load) {
+        const pager = document.getElementById('catalog-pagination');
+        pager.hidden = false;
+        const previous = document.getElementById('catalog-previous');
+        const next = document.getElementById('catalog-next');
+        previous.disabled = !result.hasPrevious;
+        next.disabled = !result.hasNext;
+        document.getElementById('catalog-page').textContent = result.totalPages === 0 ? 'No results'
+            : result.page >= result.totalPages ? 'No results on this page (' + result.totalPages + ' pages available)'
+            : 'Page ' + (result.page + 1) + ' of ' + result.totalPages;
+        previous.onclick = () => load(result.page - 1);
+        next.onclick = () => load(result.page + 1);
+    }
+
+    function pagingBusy() {
+        document.getElementById('catalog-previous').disabled = true;
+        document.getElementById('catalog-next').disabled = true;
+    }
+
+    function retainPage(pageNumber, query) {
+        const address = new URL(window.location.href);
+        address.searchParams.set('locale', locale);
+        address.searchParams.set('page', pageNumber);
+        if (query !== undefined) {
+            if (query) address.searchParams.set('q', query); else address.searchParams.delete('q');
+        }
+        history.replaceState(null, '', address.pathname + address.search);
+    }
+
     async function shop() {
         let searchVersion = 0;
         const form = document.getElementById('search-form');
         const input = document.getElementById('search-query');
         const categorySection = document.getElementById('category-section');
         const searchSection = document.getElementById('search-section');
-        async function search() {
+        async function search(pageNumber, query) {
             const version = ++searchVersion;
-            const query = input.value.trim();
             categorySection.hidden = query.length > 0;
             searchSection.hidden = !query;
             document.getElementById('search-results').replaceChildren();
-            const address = new URL(window.location.href);
-            if (query) address.searchParams.set('q', query); else address.searchParams.delete('q');
-            address.searchParams.set('locale', locale);
-            history.replaceState(null, '', address.pathname + address.search);
+            pagingBusy();
+            document.getElementById('catalog-pagination').hidden = true;
+            retainPage(pageNumber, query);
             if (!query) { notify(); return; }
             notify('Searching…');
             try {
-                const products = await api('/api/catalog/search?q=' + encodeURIComponent(query));
+                const result = await api('/api/catalog/search?q=' + encodeURIComponent(query) + '&page=' + encodeURIComponent(pageNumber));
                 if (version !== searchVersion) return;
-                productCards(document.getElementById('search-results'), products);
-                notify(products.length + ' matching products.');
+                productCards(document.getElementById('search-results'), result.content);
+                pagingState(result, nextPage => search(nextPage, query));
+                notify(result.totalElements + ' matching products.');
             } catch (error) { if (version === searchVersion) showError(error); }
         }
-        form.addEventListener('submit', event => { event.preventDefault(); search(); });
+        form.addEventListener('submit', event => { event.preventDefault(); search(0, input.value.trim()); });
         const categories = await api('/api/catalog/categories');
         const container = document.getElementById('categories');
         for (const category of categories) {
@@ -144,7 +174,21 @@
         }
         notify();
         input.value = current.searchParams.get('q') || '';
-        if (input.value.trim()) await search();
+        if (input.value.trim()) await search(current.searchParams.get('page') || 0, input.value.trim());
+    }
+
+    async function loadCatalogPages(path, render, label) {
+        async function load(pageNumber) {
+            pagingBusy();
+            try {
+                const result = await api(path + '?page=' + encodeURIComponent(pageNumber));
+                render(result.content);
+                retainPage(result.page);
+                pagingState(result, load);
+                notify(result.totalElements + ' ' + label + '.');
+            } catch (error) { showError(error); }
+        }
+        await load(current.searchParams.get('page') || 0);
     }
 
     function routeId() {
@@ -153,20 +197,16 @@
 
     async function category() {
         const id = routeId();
-        const [details, products] = await Promise.all([
-            api('/api/catalog/categories/' + id), api('/api/catalog/categories/' + id + '/products')
-        ]);
+        const details = await api('/api/catalog/categories/' + id);
         document.getElementById('category-name').textContent = details.name || details.id;
         document.getElementById('category-description').textContent = details.description || '';
-        productCards(document.getElementById('products'), products);
-        notify();
+        await loadCatalogPages('/api/catalog/categories/' + id + '/products',
+            products => productCards(document.getElementById('products'), products), 'products');
     }
 
     async function product() {
         const id = routeId();
-        const [details, items] = await Promise.all([
-            api('/api/catalog/products/' + id), api('/api/catalog/products/' + id + '/items')
-        ]);
+        const details = await api('/api/catalog/products/' + id);
         const category = await api('/api/catalog/categories/' + encodeURIComponent(details.categoryId));
         const categoryLink = document.getElementById('category-link');
         categoryLink.textContent = category.name || category.id;
@@ -174,23 +214,26 @@
         document.getElementById('product-name').textContent = details.name || details.id;
         document.getElementById('product-description').textContent = details.description || '';
         const container = document.getElementById('items');
-        for (const item of items) {
-            const card = element('article', undefined, 'card');
-            const add = element('button', 'Add to cart');
-            add.type = 'button';
-            add.setAttribute('aria-label', 'Add ' + item.id + ' to cart');
-            add.addEventListener('click', async () => {
-                add.disabled = true;
-                try {
-                    const cart = await api('/api/cart/items', 'POST', {itemId: item.id});
-                    notify(item.id + ' added. Quantity is 1. Cart contains ' + cart.lineCount + ' distinct items.', 'success');
-                } catch (error) { showError(error); } finally { add.disabled = false; }
-            });
-            card.append(element('h3', item.id), element('p', item.description || ''),
-                element('p', (item.attributes || []).join(' · '), 'hint'), element('p', price(item.listPrice), 'item-price'), add);
-            container.append(card);
-        }
-        notify(items.length ? '' : 'No items are currently listed for this product.');
+        await loadCatalogPages('/api/catalog/products/' + id + '/items', items => {
+            container.replaceChildren();
+            if (!items.length) container.append(element('p', 'No items on this page.'));
+            for (const item of items) {
+                const card = element('article', undefined, 'card');
+                const add = element('button', 'Add to cart');
+                add.type = 'button';
+                add.setAttribute('aria-label', 'Add ' + item.id + ' to cart');
+                add.addEventListener('click', async () => {
+                    add.disabled = true;
+                    try {
+                        const cart = await api('/api/cart/items', 'POST', {itemId: item.id});
+                        notify(item.id + ' added. Quantity is 1. Cart contains ' + cart.lineCount + ' distinct items.', 'success');
+                    } catch (error) { showError(error); } finally { add.disabled = false; }
+                });
+                card.append(element('h3', item.id), element('p', item.description || ''),
+                    element('p', (item.attributes || []).join(' · '), 'hint'), element('p', price(item.listPrice), 'item-price'), add);
+                container.append(card);
+            }
+        }, 'items');
     }
 
     function lineDescription(line) {

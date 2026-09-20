@@ -45,6 +45,18 @@ class StorefrontPageIntegrationTests {
     @Autowired private RegistrationService registration;
 
     @Test
+    void catalogPagesExposeAccessibleInitiallyDisabledPagination() throws Exception {
+        for (String path : new String[] {"/shop", "/shop/categories/FISH", "/shop/products/FI-SW-01"}) {
+            mvc.perform(get(path).param("locale", "ja-JP").param("page", "1").param("q", "fish"))
+                    .andExpect(status().isOk())
+                    .andExpect(content().string(containsString("aria-label=\"Catalog pagination\"")))
+                    .andExpect(content().string(containsString("id=\"catalog-previous\" type=\"button\" disabled")))
+                    .andExpect(content().string(containsString("id=\"catalog-next\" type=\"button\" disabled")))
+                    .andExpect(content().string(containsString("id=\"catalog-page\" role=\"status\"")));
+        }
+    }
+
+    @Test
     void shopIsPublicWithCategoriesSearchAndNavigation() throws Exception {
         mvc.perform(get("/shop").param("locale", "ja-JP"))
                 .andExpect(status().isOk()).andExpect(view().name("shop"))

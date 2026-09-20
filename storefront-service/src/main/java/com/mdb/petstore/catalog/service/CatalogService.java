@@ -4,11 +4,13 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
+import com.mdb.petstore.catalog.dto.CatalogPage;
 import com.mdb.petstore.catalog.dto.CategoryResponse;
+import com.mdb.petstore.catalog.repository.CatalogSearchRepository;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import com.mdb.petstore.catalog.dto.ItemResponse;
 import com.mdb.petstore.catalog.dto.ProductResponse;
 import com.mdb.petstore.catalog.model.Category;
@@ -36,12 +38,14 @@ public class CatalogService {
     private final CategoryRepository categoryRepository;
     private final ProductRepository productRepository;
     private final ItemRepository itemRepository;
+    private final CatalogSearchRepository searchRepository;
 
     public CatalogService(CategoryRepository categoryRepository, ProductRepository productRepository,
-            ItemRepository itemRepository) {
+            ItemRepository itemRepository, CatalogSearchRepository searchRepository) {
         this.categoryRepository = categoryRepository;
         this.productRepository = productRepository;
         this.itemRepository = itemRepository;
+        this.searchRepository = searchRepository;
     }
 
     public List<CategoryResponse> getCategories(String locale) {
@@ -58,13 +62,15 @@ public class CatalogService {
         return categoryResponse(category(categoryId), language);
     }
 
-    public List<ProductResponse> getProductsByCategory(String categoryId, String locale) {
+    public CatalogPage<ProductResponse> getProductsByCategory(String categoryId, String locale, int page, int size) {
+        var pageable = pageable(page, size);
         category(categoryId);
         String language = normalizeLocale(locale);
-        var results = productRepository.findByCategoryId(categoryId).stream()
-                .sorted(Comparator.comparing(Product::getId)).map(product -> productResponse(product, language)).toList();
-        log.debug("Product listing categoryId={} locale={} results={}", categoryId, language, results.size());
-        return results;
+        var results = productRepository.findByCategoryId(categoryId, pageable);
+        log.debug("Product listing categoryId={} locale={} page={} size={} results={} total={}",
+                categoryId, language, page, size, results.getNumberOfElements(), results.getTotalElements());
+        return CatalogPage.of(results.getContent().stream().map(p -> productResponse(p, language)).toList(),
+                page, size, results.getTotalElements());
     }
 
     public ProductResponse getProduct(String productId, String locale) {
@@ -73,13 +79,15 @@ public class CatalogService {
         return productResponse(product(productId), language);
     }
 
-    public List<ItemResponse> getItemsByProduct(String productId, String locale) {
+    public CatalogPage<ItemResponse> getItemsByProduct(String productId, String locale, int page, int size) {
+        var pageable = pageable(page, size);
         product(productId);
         String language = normalizeLocale(locale);
-        var results = itemRepository.findByProductId(productId).stream().sorted(Comparator.comparing(Item::getId))
-                .map(item -> itemResponse(item, language)).toList();
-        log.debug("Item listing productId={} locale={} results={}", productId, language, results.size());
-        return results;
+        var results = itemRepository.findByProductId(productId, pageable);
+        log.debug("Item listing productId={} locale={} page={} size={} results={} total={}",
+                productId, language, page, size, results.getNumberOfElements(), results.getTotalElements());
+        return CatalogPage.of(results.getContent().stream().map(i -> itemResponse(i, language)).toList(),
+                page, size, results.getTotalElements());
     }
 
     public ItemResponse getItem(String itemId, String locale) {
@@ -90,45 +98,23 @@ public class CatalogService {
         return itemResponse(item, language);
     }
 
-    public List<ProductResponse> searchProducts(String query, String locale) {
+    public CatalogPage<ProductResponse> searchProducts(String query, String locale, int page, int size) {
+        pageable(page, size);
         String language = normalizeLocale(locale);
         List<String> tokens = query == null ? List.of() : Arrays.stream(query.toLowerCase(Locale.ROOT)
                 .split("(?U)\\s+")).filter(token -> !token.isBlank()).distinct().toList();
-        log.debug("Catalog search request locale={} tokens={}", language, tokens.size());
-        if (tokens.isEmpty()) {
-            log.debug("Catalog search results=0");
-            return List.of();
-        }
-        // Resolve each item's own locale fallback, then group once to avoid one query per product.
-        Map<String, List<Item>> itemsByProduct = itemRepository.findAll().stream()
-                .collect(Collectors.groupingBy(Item::getProductId));
-        var results = productRepository.findAll().stream()
-                .filter(product -> matches(product, itemsByProduct.getOrDefault(product.getId(), List.of()),
-                        tokens, language))
-                .sorted(Comparator.comparing(Product::getId))
-                .map(product -> productResponse(product, language)).toList();
-        log.debug("Catalog search locale={} results={}", language, results.size());
-        return results;
+        var result = tokens.isEmpty() ? CatalogPage.<ProductResponse>of(List.of(), page, size, 0)
+                : searchRepository.search(tokens, language, page, size);
+        log.debug("Catalog search locale={} tokens={} page={} size={} results={} total={}",
+                language, tokens.size(), page, size, result.content().size(), result.totalElements());
+        return result;
     }
 
-    private boolean matches(Product product, List<Item> items, List<String> tokens, String locale) {
-        ProductResponse localized = productResponse(product, locale);
-        StringBuilder content = new StringBuilder();
-        append(content, localized.name());
-        append(content, localized.description());
-        append(content, product.getCategoryId());
-        for (Item item : items) {
-            ItemDetails detail = resolve(item.getDetails(), ItemDetails::getLocale, locale);
-            append(content, detail == null ? null : detail.getDescription());
+    private static PageRequest pageable(int page, int size) {
+        if (page < 0 || size < 1 || size > 20) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "page must be >= 0 and size between 1 and 20");
         }
-        String searchable = content.toString().toLowerCase(Locale.ROOT);
-        return tokens.stream().allMatch(searchable::contains);
-    }
-
-    private static void append(StringBuilder content, String value) {
-        if (value != null) {
-            content.append(value).append('\n');
-        }
+        return PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "id"));
     }
 
     private Category category(String id) {
