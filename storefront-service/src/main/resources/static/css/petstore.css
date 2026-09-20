@@ -87,3 +87,26 @@ td button { display: block; width: 100%; white-space: nowrap; padding: 8px 12px;
 .site-header nav:has(#supplier-inventory-link) { align-items: center; flex-wrap: wrap; }
 #supplier-inventory-table input { min-width: 6rem; max-width: 9rem; }
 .supplier-line-details { margin: 0.5rem 0; }
+
+.statistics-filter { align-items: flex-end; margin-bottom: 16px; }
+.statistics-category { margin-bottom: 18px; }
+.statistics-category .summary-line { flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.statistics-category meter { width: 100%; height: 22px; accent-color: #17664f; }
+
+.revenue-donut { display: block; width: min(100%, 260px); height: auto; margin: 16px auto; }
+.revenue-donut-track, .revenue-donut-slice { fill: none; stroke-width: 32; }
+.revenue-donut-track { stroke: #edf2ef; }
+.revenue-donut-slice { stroke: var(--category-color); }
+.revenue-donut-label { fill: #213b36; text-anchor: middle; dominant-baseline: middle; font-weight: 650; }
+.revenue-legend { list-style: none; padding: 0; margin: 0; font-variant-numeric: tabular-nums; }
+.revenue-legend .summary-line { flex-wrap: wrap; }
+.revenue-legend strong { display: inline-flex; align-items: center; gap: 8px; }
+.revenue-swatch { width: 12px; height: 12px; border-radius: 3px; background: var(--category-color); flex-shrink: 0; }
+.chart-color-0 { --category-color: #17664f; }
+.chart-color-1 { --category-color: #c08835; }
+.chart-color-2 { --category-color: #527f9a; }
+.chart-color-3 { --category-color: #ae6260; }
+.chart-color-4 { --category-color: #88729b; }
+.chart-color-5 { --category-color: #748545; }
+.chart-color-6 { --category-color: #4f8b83; }
+.chart-color-7 { --category-color: #976e45; }

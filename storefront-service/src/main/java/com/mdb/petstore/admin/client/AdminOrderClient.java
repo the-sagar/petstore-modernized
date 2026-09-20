@@ -1,6 +1,9 @@
 package com.mdb.petstore.admin.client;
 
 import java.util.List;
+import java.time.LocalDate;
+import java.math.BigDecimal;
+import com.mdb.petstore.admin.dto.AdminStatisticsResponse;
 import java.util.function.Supplier;
 import com.mdb.petstore.admin.dto.AdminOrderResponse;
 import com.mdb.petstore.admin.dto.AdminOrderStatus;
@@ -31,6 +34,36 @@ public class AdminOrderClient {
             var orders = body(response);
             orders.forEach(this::validate);
             return orders;
+        });
+    }
+
+    public AdminStatisticsResponse statistics(LocalDate startDate, LocalDate endDate) {
+        if (startDate == null || endDate == null || startDate.isAfter(endDate)
+                || startDate.getYear() < 1 || endDate.getYear() > 9999)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Provide valid start and end dates with start date on or before end date");
+        return call(() -> {
+            var result = body(client.get().uri(builder -> builder.path("/api/admin/statistics")
+                    .queryParam("startDate", startDate).queryParam("endDate", endDate).build())
+                    .retrieve().toEntity(AdminStatisticsResponse.class));
+            if (!startDate.equals(result.startDate()) || !endDate.equals(result.endDate())
+                    || result.totalRevenue() == null || result.totalRevenue().signum() < 0
+                    || result.totalUnitsSold() < 0 || result.categories() == null)
+                throw new RestClientException("Invalid statistics response");
+            var revenue = BigDecimal.ZERO;
+            long units = 0;
+            String previous = null;
+            for (var category : result.categories()) {
+                if (category == null || category.categoryId() == null || category.categoryId().isBlank()
+                        || category.revenue() == null || category.revenue().signum() < 0 || category.unitsSold() < 0
+                        || (previous != null && previous.compareTo(category.categoryId()) >= 0))
+                    throw new RestClientException("Invalid statistics category");
+                previous = category.categoryId();
+                revenue = revenue.add(category.revenue());
+                units += category.unitsSold();
+            }
+            if (revenue.compareTo(result.totalRevenue()) != 0 || units != result.totalUnitsSold())
+                throw new RestClientException("Invalid statistics totals");
+            return result;
         });
     }
 

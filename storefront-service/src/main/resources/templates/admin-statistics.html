@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin Statistics · Petstore</title>
+    <link rel="stylesheet" href="/css/petstore.css" th:href="@{/css/petstore.css}">
+</head>
+<body>
+<header th:replace="~{fragments/storefront :: navigation}"></header>
+<main class="storefront">
+    <nav class="actions" aria-label="Admin"><a th:href="@{/admin/orders}">Orders</a><a th:href="@{/admin/statistics}" aria-current="page">Statistics</a></nav>
+    <h1>Admin Statistics</h1>
+    <p class="hint">Legacy Pet Store sales statistics include all order statuses, including pending and denied orders, by order date. These totals are not recognized accounting revenue.</p>
+    <section class="panel">
+        <form method="get" th:action="@{/admin/statistics}" class="actions statistics-filter">
+            <label>Start date <input type="date" name="startDate" th:value="${startDate}" min="0001-01-01" max="9999-12-31" required></label>
+            <label>End date <input type="date" name="endDate" th:value="${endDate}" min="0001-01-01" max="9999-12-31" required></label>
+            <button type="submit">Apply</button>
+        </form>
+        <p class="hint">Both dates are inclusive. Order dates are interpreted in UTC.</p>
+        <p th:if="${error != null}" th:text="${error}" class="message error" role="alert"></p>
+    </section>
+    <div th:if="${statistics != null}">
+        <section class="panel" aria-label="Summary">
+            <div class="grid">
+                <div><h2>Total Revenue</h2><p class="total" id="total-revenue" th:text="${statistics.totalRevenue.toPlainString()}">0</p></div>
+                <div><h2>Units Sold</h2><p class="total" id="total-units" th:text="${statistics.totalUnitsSold}">0</p></div>
+            </div>
+        </section>
+        <p th:if="${statistics.categories.isEmpty()}" class="message">No sales data for the selected period.</p>
+        <div th:unless="${statistics.categories.isEmpty()}" class="grid">
+            <section class="panel">
+                <h2>Revenue by Category</h2>
+                <p class="hint">Category revenue and percentage of total revenue. Percentages are rounded to two decimal places.</p>
+                <svg class="revenue-donut" viewBox="0 0 220 220" role="img" aria-labelledby="revenue-chart-title revenue-chart-description">
+                    <title id="revenue-chart-title">Revenue share by category</title>
+                    <desc id="revenue-chart-description">Donut chart of category revenue. Exact values and percentages appear in the legend below.</desc>
+                    <circle class="revenue-donut-track" cx="110" cy="110" r="80" />
+                    <!-- pathLength uses the total revenue, so slice lengths use unrounded revenues.
+                         Only SVG geometry is scaled; the exact monetary labels remain unchanged. -->
+                    <g th:if="${statistics.totalRevenue.signum() > 0}" transform="rotate(-90 110 110)">
+                        <circle th:each="category, categoryStat : ${statistics.categories}"
+                                class="revenue-donut-slice" th:classappend="${'chart-color-' + (categoryStat.index % 8)}"
+                                cx="110" cy="110" r="80"
+                                th:attr="pathLength=${statistics.totalRevenue.toPlainString()},
+                                    stroke-dasharray=${category.revenue.toPlainString() + ' ' + statistics.totalRevenue.toPlainString()},
+                                    stroke-dashoffset=${statistics.revenueSliceOffset(categoryStat.index)}" />
+                    </g>
+                    <text x="110" y="110" class="revenue-donut-label" th:text="${statistics.totalRevenue.signum() > 0 ? 'Revenue' : 'No revenue'}">Revenue</text>
+                </svg>
+                <p th:if="${statistics.totalRevenue.signum() == 0}" class="hint">No revenue for the selected period.</p>
+                <ul class="revenue-legend" aria-label="Revenue by category legend">
+                    <li th:each="category, categoryStat : ${statistics.categories}" class="summary-line"
+                        th:classappend="${'chart-color-' + (categoryStat.index % 8)}">
+                        <strong><span class="revenue-swatch" aria-hidden="true"></span><span th:text="${category.categoryId}">FISH</span></strong>
+                        <span><span th:text="${category.revenue.toPlainString()}">0</span> · <span th:text="${category.revenuePercentage(statistics.totalRevenue)}">0</span>%</span>
+                    </li>
+                </ul>
+            </section>
+            <section class="panel">
+                <h2>Units Sold by Category</h2>
+                <p class="hint">Item quantities, not the number of orders. Bars show each category’s share of total units.</p>
+                <div th:each="category : ${statistics.categories}" class="statistics-category">
+                    <div class="summary-line"><strong th:text="${category.categoryId}">FISH</strong><span><span th:text="${category.unitsSold}">0</span> units</span></div>
+                    <meter min="0" max="100" th:value="${category.unitsPercentage(statistics.totalUnitsSold)}" th:attr="aria-label=${category.categoryId + ' share of units sold'}">Units share</meter>
+                </div>
+            </section>
+        </div>
+    </div>
+</main>
+</body>
+</html>

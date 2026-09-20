@@ -12,6 +12,7 @@
 <body>
 <header th:replace="~{fragments/storefront :: navigation}"></header>
 <main class="storefront">
+    <nav class="actions" aria-label="Admin"><a th:href="@{/admin/orders}" aria-current="page">Orders</a><a th:href="@{/admin/statistics}">Statistics</a></nav>
     <h1>Manage orders</h1>
     <section class="panel">
         <form id="admin-filter-form" class="actions">
