@@ -60,4 +60,4 @@ Storefront stores payment display metadata only and migrates away legacy raw num
 
 One MongoDB 7 container hosts three logical databases in a single-node `rs0` replica set, enabling local transactions. One Artemis 2.57.0 broker uses a persistent volume and a 128–256 MB configured heap. Neither setup demonstrates production HA.
 
-Separate clusters could be deployed later without changing ownership. Service authentication/TLS, production secrets, HA deployments, outbox/reconciliation and recovery operations remain hardening work. See [installation](08-installation-and-setup.md) and [demo](09-demo-and-verification.md).
+Separate clusters could be deployed later without changing ownership. Service authentication/TLS, production secrets, HA deployments, outbox/reconciliation and recovery operations remain hardening work. See [installation](08-installation-and-setup.md) and [functional verification](09-functional-verification.md).

@@ -22,8 +22,8 @@ Orders and emails are asynchronous. Use the Admin/Supplier **Refresh** controls 
 
 ## 1. Test A — Registration, login and Account
 
-1. Open `http://localhost:8080/register` in the Customer profile. Choose a new username such as `windows.tester` (use a unique suffix on subsequent runs) and a password meeting the form's requirements.
-2. Fill required name/address fields with fictional data. Use a syntactically valid fake email such as **`windows.tester@example.com`**. It does not need to exist: Mailpit catches local messages.
+1. Open `http://localhost:8080/register` in the Customer profile. Choose a new username such as `local.tester` (use a unique suffix on subsequent runs) and a password meeting the form's requirements.
+2. Fill required name/address fields with fictional data. Use a syntactically valid fake email such as **`local.tester@example.com`**. It does not need to exist: Mailpit catches local messages.
 3. For later checkout, enter demo payment metadata: card type `VISA`, synthetic card-number input `4111111111111111`, and an expiry in the form's `MM/YYYY` format, such as `12/2030`. Do not use a real card. This demo performs format checks, not payment authorization.
 4. Create the account. Expect a success message and navigation to `/login`; sign in with the new credentials.
 5. Open `http://localhost:8080/account`. Confirm the account/contact fields and saved card display, such as **VISA ending in 1111**. The full-number input should be blank; only card type, last four digits and expiry metadata are retained. Save an ordinary account-field change while leaving the number blank, then reload and confirm the saved metadata remains.
@@ -111,7 +111,7 @@ Use a controlled local dataset without other outstanding EST-15 demand if you wa
 9. Expect another `Java Pet Store Order Shipped: <orderId>` email for the later pass, followed by `Java Pet Store Order COMPLETED: <orderId>`.
 10. Confirm Admin **COMPLETED**, Supplier **COMPLETED**, and all line quantities fulfilled.
 
-**Expected:** two shipment passes produce two shipped notifications, but completion is notified only when all lines are fulfilled. The returned stock can be lower than the entered value because retry/allocation occurs before the response. Other pending orders can consume additional units. Record the final stock; restoring stock with another positive update can also trigger retries.
+**Expected:** two shipment passes produce two shipped notifications, but completion is notified only when all lines are fulfilled. The returned stock can be lower than the entered value because retry/allocation occurs before the response. Other pending orders can consume additional units. Record the final stock; restoring stock with another positive update can also trigger retries. The Supplier Inventory page also offers **Retry pending fulfilments** for an explicit retry.
 
 ## 8. Test H — Admin statistics
 
@@ -172,6 +172,10 @@ Do this after the normal order/statistics exercises so it does not disrupt their
 6. Wait for successful startup and check Admin for any recorded attempt before deciding whether to retry checkout.
 
 **Expected:** Storefront retains the cart when it cannot confirm downstream order creation. This demonstrates a failure boundary, **not distributed rollback**. In general, a timeout/502 can occur after persistence, so do not assume every failure means no order exists. With Order Processing fully stopped before the request, it cannot accept that new attempt.
+
+## Architecture rationale for verification
+
+Browser requests pass through Storefront session/CSRF checks, synchronous order acceptance, Artemis approval, Supplier atomic whole-line allocation, and typed shipment events that update order progress. Orders can complete in one pass or through SHIPPED_PART; denial stops further processing. Business-event idempotency protects against duplicate allocation/application, while Mongo/JMS publication gaps still require production outbox/reconciliation work. Email remains best-effort rather than exactly-once.
 
 ## Results and evidence
 

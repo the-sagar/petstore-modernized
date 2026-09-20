@@ -86,4 +86,4 @@ Storefront stores only card type, last4 and expiry metadata. Full numbers are tr
 
 Transacted JMS listeners let thrown processing failures use broker redelivery. Missing order IDs are handled without phantom records. Broker redelivery does not close the Mongo/JMS publication gap: a repeated delivery may find already-committed state and perform no new send. There is no outbox or automatic reconciliation. Recorded shipment events can support future controlled replay with their original event IDs.
 
-Tests cover decimal calculations, HTTP failure semantics, policy boundaries, atomic decisions, concurrency, allocation, duplicate events, partial fulfilment and replenishment. Follow the [live verification runbook](09-demo-and-verification.md) for the multi-service scenarios.
+Tests cover decimal calculations, HTTP failure semantics, policy boundaries, atomic decisions, concurrency, allocation, duplicate events, partial fulfilment and replenishment. Follow the [functional-verification guide](09-functional-verification.md) for the multi-service scenarios.

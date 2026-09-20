@@ -34,7 +34,7 @@ A subsequent bounded hardening step removed raw Storefront card persistence: onl
 - Page tests exercise real Thymeleaf CSRF tokens and anonymous-cart retention through login. Browser checks and real Artemis flows verified approval/denial and partial fulfilment followed by replenishment, in addition to earlier mocked-API smoke checks.
 - Test feedback exposed assumptions about redirects and Thymeleaf-escaped JavaScript URLs. Assertions were checked against actual responses rather than weakening security to make tests pass.
 - A duplicate generated-file/build-output issue was diagnosed as an artifact problem and cleaned instead of committing duplicate files or changing business code to mask it.
-- Focused suites and root Maven verification validated the reported 215-test baseline; this documentation pass could not reconfirm it while local MongoDB was unavailable, including concurrency, role isolation, payment migration and failure cases.
+- Focused suites and root Maven verification cover concurrency, role isolation, payment migration and failure cases. Record the actual test summary for the checked-out commit; this documentation update does not claim a new test execution.
 
 ## Explicit engineering tradeoffs
 
@@ -44,6 +44,6 @@ Mongo commits and JMS sends are separate. The developer explicitly accepted a bo
 
 Payment hardening was a human security correction: first restrict the inter-service contract to card type/last4, then remove raw Storefront persistence with an idempotent migration and raw-BSON tests. No gateway, tokenization or compliance claim was invented.
 
-## Interview use
+## Architecture rationale and review
 
-The candidate should be able to trace a request through controller, service, repository/client, and tests; explain which behavior came from verified legacy evidence and which is a modernization decision; and identify unfinished work. AI accelerated execution, while the developer retained responsibility for architecture, review, and acceptance.
+A developer reviewing the system should be able to trace a request through controller, service, repository/client, and tests; explain which behavior came from verified legacy evidence and which is a modernization decision; and identify unfinished work. AI accelerated execution, while the developer retained responsibility for architecture, review, and acceptance.

@@ -1,6 +1,6 @@
 # Installation and setup
 
-Start here on a clean Windows machine. **No IDE is required. Windows PowerShell is the primary installation, build and startup path.** Java applications run on the Windows host; infrastructure runs in Docker Linux containers. The [macOS guidance](#macos) is retained separately below.
+Start here on a clean Windows or macOS machine. **No IDE is required.** Choose [Windows PowerShell](#windows-1011-with-powershell) or [macOS Terminal](#macos) for installation, build and startup. Java applications run on the host; infrastructure runs in Docker Linux containers.
 
 ## 1. What is required
 
@@ -28,7 +28,7 @@ Start here on a clean Windows machine. **No IDE is required. Windows PowerShell 
 | Spring Boot | Resolved by Maven as project dependencies; no standalone installer. |
 | Node.js / npm | Not used by this project. |
 
-Versions below were checked against `main` at `b2bb27b`, root/module POMs, and Compose during this documentation update:
+Versions below were checked against `main` at `21592ab`, root/module POMs, and Compose during this documentation update:
 
 | Technology | Repository configuration |
 | --- | --- |
@@ -396,7 +396,7 @@ Approval, denial, each applied shipment pass, and completion request emails. A f
 - [ ] Supplier starts on 8082.
 - [ ] Petstore home page opens at 8080.
 
-Continue with the browser-driven [functional-verification exercise](10-functional-verification.md). No IntelliJ setup is necessary.
+Continue with the browser-driven [functional-verification exercise](09-functional-verification.md). No IntelliJ setup is necessary.
 
 ### 17. Windows troubleshooting
 
@@ -473,204 +473,378 @@ docker compose down -v
 
 ## macOS
 
-Use **Terminal** (Applications → Utilities → Terminal), with the default Zsh shell. Run commands one line at a time, without adding a prompt character. First detect your architecture:
+### 1. Requirements
 
-```sh
+This path starts with a clean Mac and uses **Terminal, without an IDE**. Java runs on the Mac; MongoDB, Artemis and Mailpit run in Docker. Use a directory outside iCloud Drive or other synchronized folders for the checkout and build output.
+
+| Tool or requirement | Required? |
+| --- | --- |
+| A macOS release supported by Docker Desktop | Required; check the current official requirements before installing. |
+| Internet access during setup | Required for installers, source, Docker images and Maven dependencies. |
+| Git | Required; Apple's Command Line Tools are the primary installation method below. |
+| Java **JDK 21** | Required; a JRE is insufficient. |
+| Docker Desktop | Required; includes the engine and Compose. |
+| Terminal and a web browser | Required; Terminal is in Applications → Utilities. |
+| IntelliJ IDEA or another IDE | Optional. |
+| Homebrew | Optional; none of the primary steps require it. |
+
+**Do not install separately:** Maven comes through `./mvnw`; MongoDB runs in Docker; `mongosh` runs inside the Mongo container; Artemis and Mailpit run in Docker; Spring Boot is a Maven dependency; Node.js/npm are unused.
+
+The checked-in stack is **Java 21, Spring Boot 4.1.1, MongoDB `mongo:7.0` with single-node replica set `rs0`, Artemis `apache/artemis:2.57.0-alpine`, and Mailpit `axllent/mailpit:v1.27.8`**. Storefront, Order Processing and Supplier are three Spring Boot applications. The wrapper downloads Maven 3.9.16.
+
+Allow free disk space for images and dependencies, and free memory for Docker plus three JVMs. More RAM than Docker's own minimum is useful for this combined workload; this guide does not define a measured project minimum. Managed Macs may need administrator or IT approval for installations and network access.
+
+### 2. Check Apple silicon versus Intel
+
+In Terminal, run:
+
+```bash
 uname -m
 ```
 
-`arm64` means Apple silicon; `x86_64` means Intel. Use this result when selecting installers. If Terminal is running through Rosetta on an Apple silicon Mac, reopen it without Rosetta and check again; Apple menu → About This Mac also identifies the chip.
+- `arm64`: Apple silicon; choose ARM64/aarch64 JDK and Apple silicon Docker installers.
+- `x86_64`: Intel; choose x64 JDK and Intel Docker installers.
 
-### A. Install Git
+Also check **Apple menu → About This Mac**. On Apple silicon, a Terminal session running under Rosetta can report `x86_64`; use a native Terminal session where practical and use About This Mac to confirm the actual hardware.
 
-Git is needed to clone the repository and track source changes. The simplest installation is Apple's Command Line Tools, which include Git; full Xcode is not required. See the official [Git macOS installation page](https://git-scm.com/install/mac).
+### 3. Install Git
 
-```sh
+Use Apple's Command Line Tools:
+
+```bash
 xcode-select --install
 ```
 
-Accept the installation dialog and wait for it to finish. Open a new Terminal and verify:
+Accept the installation dialog and wait for completion. This installs Git and common developer command-line tools; **full Xcode is not required**. An “already installed” message is normal if the tools are present. Close and reopen Terminal, then check:
 
-```sh
+```bash
 git --version
 ```
 
-Expect `git version ...` (possibly with an Apple Git suffix). If the tools are already installed, that message is normal: run the verification. If Git is still missing, complete the Command Line Tools installation and check macOS Software Update.
+Expect `git version ...`. See [Apple's Command Line Tools instructions](https://developer.apple.com/documentation/xcode/installing-the-command-line-tools/) and [Git's macOS installation options](https://git-scm.com/install/mac). If you already use Homebrew, `brew install git` is an optional alternative, not a prerequisite.
 
-Alternatively, **if you already use Homebrew**, install Git with:
+### 4. Install Java JDK 21 and set JAVA_HOME
 
-```sh
-brew install git
-git --version
-```
+Install a **JDK, not a JRE**; this project requires Java 21.
 
-Homebrew is optional and is not a project prerequisite. Choose one Git installation approach.
-
-### B. Install Java JDK 21
-
-The JDK provides the compiler and runtime for building, testing and running Petstore. Install **JDK 21**, not just a JRE or whichever Java version the download page selects by default.
-
-1. Open [Eclipse Adoptium / Temurin downloads](https://adoptium.net/temurin/releases/?version=21).
-2. Select **JDK**, version **21**, **macOS**, and **aarch64 / ARM64** for Apple silicon or **x64** for Intel.
-3. Download the **.pkg**, open it and complete the installer. See [Adoptium's macOS installer instructions](https://adoptium.net/installation/macOS/).
+1. Open the official [Eclipse Temurin releases page](https://adoptium.net/temurin/releases/?version=21).
+2. Select **JDK**, version **21**, **macOS**, and **aarch64/ARM64** for Apple silicon or **x64** for Intel.
+3. Download the **.pkg** installer, open it and complete installation. See [Adoptium's macOS installer instructions](https://adoptium.net/installation/macOS/).
 4. Close and reopen Terminal.
 
-Verify the installed JDKs and the currently selected Java:
+List installed JDKs and check the active compiler/runtime:
 
-```sh
+```bash
 /usr/libexec/java_home -V
 java -version
+javac -version
 ```
 
-Expect a JDK 21 entry and Java/OpenJDK version `21...`. If another version is selected, set Java 21 for the current Terminal:
+Both Java and javac must report **21**. If another version is active, select the installed JDK 21 in the current shell:
 
-```sh
+```bash
 export JAVA_HOME=$(/usr/libexec/java_home -v 21)
 export PATH="$JAVA_HOME/bin:$PATH"
 ```
 
-`JAVA_HOME` points to the JDK's home directory; `PATH` tells the shell where to find its commands. Persist the selection for future Zsh terminals by running these lines **once**:
+`JAVA_HOME` identifies the JDK home directory, not its `bin` subdirectory. Maven uses it to select Java. If `java_home` cannot find version 21, finish installing the JDK before continuing.
 
-```sh
+For the default Zsh shell, persist these settings in `~/.zshrc`. **If that file already sets JAVA_HOME or Java-related PATH entries, edit those lines instead of appending conflicting settings.** Otherwise these quoted commands append the expressions without expanding them prematurely:
+
+```bash
 echo 'export JAVA_HOME=$(/usr/libexec/java_home -v 21)' >> ~/.zshrc
 echo 'export PATH="$JAVA_HOME/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
+```
+
+Verify again:
+
+```bash
 echo "$JAVA_HOME"
 java -version
 javac -version
 ```
 
-The single quotes preserve the expressions when writing the file so they are evaluated at shell startup. Expect a JDK 21 home path and both Java and `javac` version 21. If `java_home` cannot find version 21, check that you installed the JDK .pkg for your architecture. If you already have Java settings in `~/.zshrc`, update those instead of appending competing entries.
+### 5. Install Docker Desktop for Mac
 
-### C. Install Docker Desktop
+1. Open the official [Docker Desktop macOS installation page](https://docs.docker.com/desktop/setup/install/mac-install/) and check its current supported macOS requirements.
+2. Download the **Apple silicon** or **Intel** installer matching your Mac.
+3. Open `Docker.dmg` and drag Docker to **Applications**.
+4. Launch Docker Desktop from Applications, review its terms and approve the required setup permissions.
+5. Wait until the Docker engine reports that it is running.
 
-Docker Desktop supplies the container engine and Docker Compose used to run MongoDB, Artemis and Mailpit.
+Docker Desktop runs the project's MongoDB, Artemis and Mailpit containers. In Terminal verify:
 
-1. Open the official [Docker Desktop for Mac installation page](https://docs.docker.com/desktop/setup/install/mac-install/), and check its supported macOS versions.
-2. Download the **Apple silicon** or **Intel** installer matching your machine.
-3. Open `Docker.dmg` and drag **Docker** into **Applications**.
-4. Start Docker Desktop from Applications, review/accept its terms, and configure the requested permissions.
-5. Wait until Docker Desktop reports that the engine is running.
-
-Docker Desktop requires **at least 4 GB RAM on macOS**. This project is more comfortable with additional free memory: IntelliJ, three JVMs (Java application processes), Mongo and Artemis run together. A machine with 16 GB total RAM is a practical recommendation for this workflow, not a Docker minimum.
-
-Verify in Terminal:
-
-```sh
+```bash
 docker --version
 docker compose version
 docker info
 ```
 
-Expect Docker and Compose version numbers, then both client and server/engine information. **Do not continue until `docker info` succeeds.** If the command is missing, finish Docker Desktop's command-line tool setup and reopen Terminal. If it cannot connect to the daemon, start Docker Desktop and wait for engine startup.
+`docker info` must return **server/engine information** for Linux containers, not just a client version or connection error. **Do not continue until this works.** Docker Desktop must remain running while using the application.
 
-### D. Install IntelliJ IDEA (optional, recommended)
+### 6. Clone the project and check Maven Wrapper
 
-IntelliJ provides code navigation, Maven import, debugging and a convenient way to launch all three services.
+Choose a parent directory outside cloud synchronization. Replace the placeholder below with its actual path; do not type the angle brackets literally:
 
-1. Download current [IntelliJ IDEA from JetBrains](https://www.jetbrains.com/idea/download/), selecting macOS and the architecture matching your machine.
-2. Open the downloaded disk image and drag IntelliJ IDEA into Applications.
-3. Launch it and finish the initial setup. See [JetBrains installation instructions](https://www.jetbrains.com/help/idea/installation-guide.html).
-4. No separate Java runtime is needed to launch IntelliJ: it bundles its own. **The project still requires the JDK 21 installed above.** Configure Project SDK = JDK 21 after cloning.
-
-Verify the installation by launching it from Terminal:
-
-```sh
-open -a "IntelliJ IDEA"
-```
-
-Expect the welcome screen or IDE window. If macOS cannot find the app, confirm it was copied into Applications. The [IntelliJ project setup](#intellij-project-setup) below configures Maven and the services. If you skip IntelliJ, use the terminal launch commands at the end of this macOS path.
-
-### E. Clone the project and verify Maven Wrapper
-
-Choose a folder for your source checkout in Terminal, then run:
-
-```sh
+```bash
+cd "<parent-directory>"
 git clone https://github.com/the-sagar/petstore-modernized.git
 cd petstore-modernized
+git status
 ./mvnw -version
 ```
 
-Expect Maven version information and **Java version: 21...**. Do not install Maven separately. The first wrapper invocation downloads Maven and can take time. If execution is denied, run `chmod +x mvnw` and retry. Run the remaining project commands from this repository root (the folder containing `pom.xml` and `compose.yaml`).
+Maven does **not** need a separate installation. The first wrapper invocation may download Maven. Its output must show **Java version 21**; if it shows another version, fix `JAVA_HOME` before continuing.
 
-### F. Start project infrastructure
+If the wrapper reports permission denied, run from the repository root:
 
-Compose automatically pulls `mongo:7.0`, `apache/artemis:2.57.0-alpine` and `axllent/mailpit:v1.27.8`; no native infrastructure installation is needed. The first pull can take several minutes.
+```bash
+chmod +x mvnw
+./mvnw -version
+```
 
-```sh
+All remaining project commands run from the repository root unless stated otherwise.
+
+### 7. Understand Docker services and ports
+
+Compose starts infrastructure only; the Java applications start separately in Terminal.
+
+| Compose service | Container | Host endpoint |
+| --- | --- | --- |
+| `mongodb` | `petstore-mongodb` | `localhost:27017` (Compose binds `27017:27017`, not loopback-only) |
+| `artemis` | `petstore-artemis` | Broker `127.0.0.1:61616`; console `http://localhost:8161/console` (loopback binding) |
+| `mailpit` | `petstore-mailpit` | SMTP `127.0.0.1:1025`; UI `http://localhost:8025` (loopback binding) |
+
+MongoDB and Artemis use named persistent volumes, which survive normal `docker compose down`. Mailpit has no persistent volume in this configuration; do not rely on captured emails surviving container recreation.
+
+### 8. Start infrastructure
+
+```bash
 docker compose pull
 docker compose up -d mongodb artemis mailpit
 docker compose ps
 ```
 
-Expect all three containers to be running (Mongo becomes healthy). Check Mongo:
+Expect all three services to be running; Mongo should become healthy. Its health check tests connectivity, **not replica-set readiness**, so the next step is still required. Inspect startup problems with:
 
-```sh
+```bash
+docker compose logs mongodb
+docker compose logs artemis
+docker compose logs mailpit
+```
+
+### 9. Initialize MongoDB replica set rs0
+
+First verify connectivity, then check whether initialization already exists:
+
+```bash
 docker exec petstore-mongodb mongosh --quiet --eval 'db.adminCommand({ping:1})'
 docker exec petstore-mongodb mongosh --quiet --eval 'rs.status().ok'
 ```
 
-Ping should include `ok: 1`. Replica status should return `1`. On a **fresh, uninitialized** volume, status instead reports that no replica-set configuration exists. Initialize exactly once:
+The ping should include `ok: 1`. **If `rs.status().ok` returns `1`, do not initialize again.** If it reports that the replica set has not been initialized, and this is a fresh/uninitialized volume, run:
 
-```sh
+```bash
 docker exec petstore-mongodb mongosh --eval \
 'rs.initiate({_id:"rs0",members:[{_id:0,host:"localhost:27017"}]})'
 ```
 
-Wait a few seconds for election, then verify:
+A connection failure is not evidence that initialization is needed: first check the running container and its logs. After initialization, wait several seconds for primary election, then verify:
 
-```sh
+```bash
 docker exec petstore-mongodb mongosh --quiet --eval 'rs.status().ok'
 docker exec petstore-mongodb mongosh --quiet --eval 'db.hello().isWritablePrimary'
 ```
 
-Expected results: `1` and `true`. Do not reinitialize an already configured replica set. The advertised localhost address is appropriate because services run on the host, not in application containers.
+Expected results are **`1`** and **`true`**, respectively. Retry these read-only checks if election is still in progress. Continue only when both pass.
 
-Check Artemis startup:
+Application Mongo transactions require the replica set. `rs0` here is a **one-node local development** configuration, not production high availability. Existing volumes retain initialization across normal restarts.
 
-```sh
-docker compose logs artemis
-```
+### 10. Verify Artemis and Mailpit
 
-Expect successful broker startup with no fatal startup error. Open **http://localhost:8161/console** and log in with **petstore / petstore-dev**. If startup fails, resolve it before launching the services.
+Open **http://localhost:8161/console**. Log in using the current local defaults **`petstore` / `petstore-dev`**, unless you supplied `ARTEMIS_USER` / `ARTEMIS_PASSWORD` overrides. These are local development credentials. If overridden, use matching credentials when launching Order Processing and Supplier too.
 
-### G. Build the project
+Open **http://localhost:8025**. Mailpit is a **local SMTP sink**: no Gmail/Outlook account is needed. Messages addressed to syntactically valid fake addresses such as `local.tester@example.com` appear here rather than being delivered to the Internet. The application connects to SMTP on **1025**; **8025** is the browser UI.
 
-Confirm the wrapper uses Java 21, then compile and run verification:
+### 11. Build and test
 
-```sh
-./mvnw -version
+With Mongo `rs0` writable, run:
+
+```bash
 ./mvnw clean verify
 ```
 
-Expect **Java version: 21...** and finally **BUILD SUCCESS** for all three modules. Mongo must be reachable and writable before this build; dependency downloads can take time.
+Expect the final result **`BUILD SUCCESS`** with no failing tests. Use the test counts printed by this execution as evidence for your checked-out commit. This documentation update does not claim a new Maven test execution or a clean-machine installation test. Automated mail tests use mocks and do not require Mailpit.
 
-### H. Start the services
+If duplicate classes or numbered copies of build artifacts appear under `target`, investigate iCloud/file synchronization; this is an environment problem, not normal project output. See troubleshooting below before rebuilding.
 
-Run each service in a **separate Terminal window**, first changing to the repository root in each. [IntelliJ project setup](#intellij-project-setup) is an optional alternative:
+### 12. Start all three services without IntelliJ
 
-```sh
+Use **three Terminal windows/tabs**, each opened in the repository root. Environment exports apply only to processes started from that shell. Keep each process running while you use the application.
+
+**Terminal 1 — Storefront:**
+
+```bash
 ./mvnw -pl storefront-service spring-boot:run
-NOTIFICATION_ENABLED=true ./mvnw -pl order-processing-service spring-boot:run
+```
+
+**Terminal 2 — Order Processing:** notifications currently default to **true**. This explicit setting ensures that the verification exercise includes email, even if your shell previously disabled it:
+
+```bash
+export NOTIFICATION_ENABLED=true
+./mvnw -pl order-processing-service spring-boot:run
+```
+
+**Terminal 3 — Supplier:**
+
+```bash
 ./mvnw -pl supplier-service spring-boot:run
 ```
 
-Open http://localhost:8080 after all three services start; Mailpit is at http://localhost:8025. The [functional-verification exercise](10-functional-verification.md) is browser-driven and applies to macOS too. Stop each Java process with Ctrl+C and use `docker compose down` to preserve Mongo/Artemis volumes. The destructive `-v` warning in the Windows section applies equally on macOS.
+Wait for successful startup in each terminal:
 
-For macOS environment overrides, use Bash/Zsh exports before starting the relevant application. These examples preserve the same bootstrap behavior as the Windows variables above; replace the values before use:
+| Application | Port | Startup main class |
+| --- | --- | --- |
+| Storefront | 8080 | `com.mdb.petstore.PetstoreModernizedApplication` |
+| Order Processing | 8081 | `com.mdb.petstore.orderprocessing.OrderProcessingApplication` |
+| Supplier | 8082 | `com.mdb.petstore.supplier.SupplierApplication` |
 
-```sh
-export PETSTORE_ADMIN_USERNAME='your-local-admin'
-export PETSTORE_ADMIN_PASSWORD='replace-with-your-local-value'
-export PETSTORE_SUPPLIER_USERNAME='your-local-supplier'
-export PETSTORE_SUPPLIER_PASSWORD='replace-with-your-local-value'
+Check for the corresponding `Started ...Application` message and absence of startup errors. Open **http://localhost:8080** for the application. Backend roots **http://localhost:8081/** and **http://localhost:8082/** may return **404**, because they are API services, not browser homepages; a root 404 alone is not a health failure. Use startup logs and the linked functional checks to verify service interaction; there is no documented actuator health endpoint.
+
+Stop each Java application with **Ctrl+C** in its own terminal.
+
+### 13. Local accounts and environment overrides
+
+| Identity | Local default | Browser entry |
+| --- | --- | --- |
+| Admin | `admin` / `admin` | `/login`, then `/admin/orders` or `/admin/statistics` |
+| Supplier | `supplier` / `supplier` | `/login`, then `/supplier/inventory` or `/supplier/orders` |
+| Customer | Register your own account | `/register` |
+
+These are **local demo defaults, not production credentials**. To choose different bootstrap accounts, replace these example values and export them **in the Storefront terminal before launch**:
+
+```bash
+export PETSTORE_ADMIN_USERNAME='local-admin'
+export PETSTORE_ADMIN_PASSWORD='replace-with-your-local-admin-password'
+export PETSTORE_SUPPLIER_USERNAME='local-supplier'
+export PETSTORE_SUPPLIER_PASSWORD='replace-with-your-local-supplier-password'
 ```
 
-Keep the baseline defaults for the functional exercise unless you deliberately choose overrides. After an existing account is bootstrapped, changing these values does not overwrite its password. For macOS installation problems, first recheck `java -version`, `./mvnw -version`, `docker info` and the Mongo primary checks above. Most infrastructure/application symptoms in the [troubleshooting table](#17-windows-troubleshooting) apply on macOS too; use Terminal syntax rather than PowerShell commands.
+Bootstrap does not overwrite an existing user's password or roles. Changing these variables is not a password-reset mechanism for users already stored in Mongo. Use distinct Admin/Supplier usernames. Shell exports affect apps launched from that shell; another tab does not inherit exports made after it was opened. See the shared [environment variable table](#environment-and-demo-accounts) for broker, SMTP and service URL overrides.
+
+### 14. Email notifications
+
+Order Processing uses `petstore.notification.enabled=${NOTIFICATION_ENABLED:true}`: **enabled by default** on current main. Set `export NOTIFICATION_ENABLED=true` before starting it to explicitly enable delivery, or `export NOTIFICATION_ENABLED=false` to disable it. Restart that service after changing its environment.
+
+The local flow is:
+
+```text
+Order Processing → Artemis queue petstore.notification.requested
+→ notification listener → Spring Mail → Mailpit SMTP localhost:1025
+→ Mailpit browser UI http://localhost:8025
+```
+
+Identifier-only events cause the listener to reload the authoritative Order and its order-time email. Approved/denied decisions produce status emails; each new shipment pass produces a shipped email; final fulfilment also produces a completed email. Fake customer addresses are acceptable locally.
+
+Defaults are `SMTP_HOST=localhost`, `SMTP_PORT=1025`, `SMTP_AUTH=false`, `SMTP_STARTTLS=false`, `SMTP_STARTTLS_REQUIRED=false`, and `NOTIFICATION_FROM=petstore@localhost`. The queue override is `NOTIFICATION_REQUESTED_DESTINATION`. No local SMTP authentication or TLS is required. These names are environment overrides; standard Spring Mail properties can also be supplied externally.
+
+Email is **best-effort and non-blocking for business state**. Delivery/publication failures are logged without undoing approval, denial or fulfilment. SMTP failures are not automatically retried. Mongo updates, JMS publication and SMTP delivery are not an exactly-once transaction; messages can be lost or duplicated across failures. Disabling notifications stops new requests and the listener; queued requests can be consumed when re-enabled.
+
+### 15. macOS installation success checklist
+
+- [ ] `uname -m` understood and installer architectures match the Mac.
+- [ ] `git --version` works.
+- [ ] `java -version` shows 21.
+- [ ] `javac -version` shows 21.
+- [ ] `JAVA_HOME` points to JDK 21.
+- [ ] `docker info` returns engine information.
+- [ ] `docker compose version` works.
+- [ ] Mongo is running.
+- [ ] Artemis is running.
+- [ ] Mailpit is running.
+- [ ] Mongo ping succeeds.
+- [ ] `rs.status().ok` returns `1`.
+- [ ] `db.hello().isWritablePrimary` returns `true`.
+- [ ] Artemis console opens and login works.
+- [ ] Mailpit UI opens.
+- [ ] `./mvnw -version` shows Java 21.
+- [ ] `./mvnw clean verify` succeeds.
+- [ ] Storefront starts on 8080.
+- [ ] Order Processing starts on 8081.
+- [ ] Supplier starts on 8082.
+- [ ] Petstore opens at http://localhost:8080.
+
+Continue with [functional verification](09-functional-verification.md). **Independent execution from scratch on a separate clean Mac is still required to validate this installation guide.**
+
+### 16. macOS troubleshooting
+
+| Symptom | Check / action |
+| --- | --- |
+| `xcode-select` says tools already installed | Check `git --version`; no full Xcode installation is needed. |
+| Git not found | Complete Command Line Tools installation, reopen Terminal and retry. Managed installations may require IT help. |
+| Java not found | Install the JDK 21 `.pkg`, then check `/usr/libexec/java_home -V`. |
+| Wrong Java or incorrect JAVA_HOME | Select version 21 with `java_home`, export JAVA_HOME and prepend its `bin` to PATH as above. JAVA_HOME must be the JDK home, not `bin`. |
+| Java changes between shells | Inspect `~/.zshrc` and other shell startup files for competing JAVA_HOME/PATH settings; edit existing entries rather than appending duplicates. |
+| `./mvnw` permission denied | Run `chmod +x mvnw` from the repository root and retry. |
+| Maven Wrapper selects wrong Java | Check `echo "$JAVA_HOME"`, `java -version` and `./mvnw -version` in that same terminal; repair JAVA_HOME before building. |
+| Maven download fails | Verify Internet/proxy access to Maven Central and the wrapper distribution URL. Follow organizational proxy/certificate guidance rather than disabling TLS validation. |
+| `docker` command not found | Complete Docker Desktop installation/CLI setup, then reopen Terminal and verify PATH. |
+| Cannot connect to Docker daemon | Start Docker Desktop and wait for engine readiness; retry `docker info`. A working client command alone is insufficient. |
+| Wrong Apple silicon/Intel installer | Check About This Mac and native `uname -m`; install the matching Docker/JDK architecture. |
+| Docker stuck starting or permissions denied | Check Docker Desktop diagnostics, macOS security/permission prompts, supported macOS version and free resources. Ask IT about managed-device restrictions. |
+| Pulls fail on corporate network | Review Docker Desktop proxy configuration and permitted registry/network access with IT. |
+| Port already in use | Check all required ports: **27017, 61616, 8161, 1025, 8025, 8080, 8081, 8082**. Identify the process before stopping anything; avoid launching duplicate services in IDE and Terminal. |
+| Replica set not initialized / “Transaction numbers are only allowed...” | Follow the rs0 checks above. Initialize only an uninitialized volume and wait until it is writable. |
+| Artemis authentication fails | Match `ARTEMIS_USER` / `ARTEMIS_PASSWORD` between broker configuration and both consuming services. Existing broker volume credentials may differ from newly supplied values; do not delete volumes as a routine fix. |
+| Mailpit UI unavailable | Check Mailpit container/logs and port 8025; SMTP 1025 is not a browser UI. |
+| Emails absent | Check Order Processing's effective `NOTIFICATION_ENABLED` (default true), SMTP settings and logs; ensure Mailpit and Artemis run and the order actually transitioned. Restart after shell changes. Best-effort delivery does not guarantee replay of failed emails. |
+| Storefront works but checkout returns 502 | Check Order Processing on 8081 and its Mongo/Artemis logs. Cart retention is expected; a timeout does not prove that no order was persisted. |
+| Supplier page unavailable | Check Supplier startup on 8082, Storefront proxy configuration and the Supplier login role. Browse through Storefront 8080. |
+| Admin/Supplier returns 403 | Sign in with the matching role; Admin is not automatically Supplier. Customer accounts cannot access either protected area. |
+| Backend root returns 404 | Expected for backend API roots; use Storefront 8080 and functional checks. |
+| Numbered duplicate files/classes from iCloud | Keep checkout/build output outside synchronized folders. Review `git status` and duplicates before removing anything; do not delete source files blindly. Once synchronization is resolved, `./mvnw clean verify` regenerates build artifacts. |
+
+Useful read-only diagnostics:
+
+```bash
+lsof -i :8080
+lsof -i :27017
+docker compose ps
+docker compose logs mongodb
+docker compose logs artemis
+docker compose logs mailpit
+```
+
+Substitute another port in `lsof` as needed. Use macOS/Zsh syntax here: Windows PowerShell's `$env:NAME` and `mvnw.cmd` are not the macOS commands.
+
+### 17. Stop, restart and reset
+
+For normal shutdown, press **Ctrl+C in each Spring Boot terminal**, then stop infrastructure:
+
+```bash
+docker compose down
+```
+
+MongoDB and Artemis volumes are **preserved**. Restart infrastructure with:
+
+```bash
+docker compose up -d mongodb artemis mailpit
+```
+
+Verify Mongo is writable, then start the three applications again. Normal restarts do not require `rs.initiate` again.
+
+**Destructive reset — not for ordinary testing:**
+
+```bash
+docker compose down -v
+```
+
+**WARNING: this deletes local persisted MongoDB and Artemis data, including accounts, orders, inventory/stock and broker state/messages.** After a deliberate full volume reset, start infrastructure again and initialize `rs0` again before starting applications. Do not use `-v` for normal shutdown or troubleshooting.
 
 ## IntelliJ project setup
 
-**Entirely optional:** these UI steps are for users who choose to install IntelliJ IDEA after completing either OS path. The PowerShell startup procedure above does not depend on them. If you started services in terminals, stop them before launching the same services from IntelliJ to avoid duplicate processes and port conflicts.
+**Entirely optional:** these UI steps are for users who choose to install IntelliJ IDEA after completing either OS path. Neither OS terminal startup procedure depends on them. If you started services in terminals, stop them before launching the same services from IntelliJ to avoid duplicate processes and port conflicts.
 
 1. Select **File → Open**, choose the repository root or its root `pom.xml`, and open/import it as a **Maven project**. Do not import the service folders as separate projects.
 2. Under **File → Project Structure → Project → SDK**, select **JDK 21**. If absent, use **Add SDK → JDK** and browse to the installed JDK home. Use language level 21 or the SDK default.
