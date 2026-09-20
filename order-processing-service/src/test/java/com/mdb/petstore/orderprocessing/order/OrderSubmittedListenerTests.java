@@ -23,7 +23,7 @@ import static org.mockito.Mockito.*;
 class OrderSubmittedListenerTests {
     private final OrderRepository orders = mock(OrderRepository.class);
     private final MongoTemplate mongo = mock(MongoTemplate.class);
-    private final OrderSubmittedListener listener = new OrderSubmittedListener(orders, new OrderApprovalService(mongo, mock(InventoryRequestedPublisher.class)),
+    private final OrderSubmittedListener listener = new OrderSubmittedListener(orders, new OrderApprovalService(mongo, mock(InventoryRequestedPublisher.class), mock(com.mdb.petstore.orderprocessing.order.notification.NotificationPublisher.class)),
             new ApprovalPolicy(), new JsonMapper());
 
     @Test

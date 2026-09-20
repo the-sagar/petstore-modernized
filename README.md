@@ -90,7 +90,7 @@ Coverage includes registration rollback/authentication, catalog parsing/seeding/
 
 ## Deliberate limits and deferred work
 
-Optional legacy email, Admin statistics, Favorite Category/My List behavior, full UI translation and customer order history are not implemented. Legacy invoice XML is intentionally replaced by typed fulfilment events and persisted shipment history.
+Admin statistics, Favorite Category/My List behavior, full UI translation and customer order history are not implemented. Legacy invoice XML is intentionally replaced by typed fulfilment events and persisted shipment history.
 
 Production hardening remains: transactional outbox/reconciliation for Mongo/JMS gaps, checkout retry idempotency, service-to-service authentication/TLS, secrets management, HA Mongo/Artemis deployment and operational recovery. The local one-node replica set supports transactions, not production HA. No payment gateway or Kubernetes/cloud deployment is claimed or required.
 
@@ -107,3 +107,24 @@ AI assisted scaffolding, implementation, investigation and tests. Human decision
 7. [Order processing and fulfilment](docs/07-order-processing.md)
 8. [Installation and setup — macOS / Windows](docs/08-installation-and-setup.md)
 9. [Demo and verification runbook](docs/09-demo-and-verification.md)
+
+## Optional local email
+
+Run `docker compose up -d mailpit` and start Order Processing with `NOTIFICATION_ENABLED=true`.
+Mailpit captures SMTP at `127.0.0.1:1025`; read messages at `http://127.0.0.1:8025`.
+No SMTP authentication or TLS is required locally. Override `SMTP_HOST`, `SMTP_PORT`,
+`SMTP_AUTH`, `SMTP_STARTTLS`, `SMTP_STARTTLS_REQUIRED`, and `NOTIFICATION_FROM` as needed;
+standard Spring Mail properties (including username/password) remain externally overrideable.
+
+Order Processing publishes identifier-only `NotificationRequested` JSON to Artemis queue
+`petstore.notification.requested` after successful approval, denial, or a new shipment pass.
+A final shipment requests both shipped and completed emails. Its listener reloads the order
+from `petstore_orders` and uses the immutable checkout email. Shipment emails identify the
+persisted fulfilment event; the Order stores cumulative quantities, not per-pass line details.
+
+Email is opt-in and best-effort. SMTP and notification publication failures are logged without
+undoing business state. SMTP failures are acknowledged without automatic retry. Mongo updates
+and JMS sends are not atomic: a crash/publication failure can lose a notification, and JMS
+redelivery or a crash after SMTP acceptance can duplicate email. There is no outbox,
+distributed transaction, or SMTP/JMS exactly-once guarantee. Disabling email prevents new
+requests and stops the email listener; queued requests remain for later re-enabling.

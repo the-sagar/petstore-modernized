@@ -1,5 +1,7 @@
 package com.mdb.petstore.orderprocessing.order;
 
+import com.mdb.petstore.orderprocessing.order.notification.NotificationPublisher;
+import com.mdb.petstore.orderprocessing.order.notification.NotificationType;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -47,6 +49,7 @@ class AdminOrderIntegrationTests {
     @Autowired OrderSubmittedListener submitted;
     @MockitoSpyBean OrderApprovalService approval;
     @MockitoBean InventoryRequestedPublisher publisher;
+    @MockitoBean NotificationPublisher notifications;
     @BeforeEach
     void reset() { assertEquals(DATABASE, mongo.getDb().getName()); orders.deleteAll(); }
     @AfterAll
@@ -88,7 +91,7 @@ class AdminOrderIntegrationTests {
         mvc.perform(get("/api/admin/orders/missing")).andExpect(status().isNotFound());
         mvc.perform(post("/api/admin/orders/missing/approve")).andExpect(status().isNotFound());
         mvc.perform(post("/api/admin/orders/missing/deny")).andExpect(status().isNotFound());
-        verifyNoInteractions(publisher);
+        verifyNoInteractions(publisher, notifications);
     }
     @Test
     void approveReusesBoundaryPublishesOnceAndDuplicateConflicts() throws Exception {
@@ -98,6 +101,8 @@ class AdminOrderIntegrationTests {
         mvc.perform(post("/api/admin/orders/approve/approve")).andExpect(status().isConflict());
         verify(approval, times(1)).approve(any(Order.class));
         verify(publisher, times(1)).publish(argThat(o -> o.id().equals("approve")));
+        verify(notifications).publish("approve", NotificationType.ORDER_APPROVED, null);
+        verifyNoMoreInteractions(notifications);
     }
     @Test
     void nonPendingDecisionsAlwaysConflict() throws Exception {
@@ -107,16 +112,18 @@ class AdminOrderIntegrationTests {
             mvc.perform(post("/api/admin/orders/" + state + "/deny")).andExpect(status().isConflict());
             assertEquals(state, orders.findById(state.name()).orElseThrow().status());
         }
-        verifyNoInteractions(publisher);
+        verifyNoInteractions(publisher, notifications);
     }
     @Test
-    void denyPublishesNothingAndSurvivesDuplicateSubmittedEvent() throws Exception {
+    void denyNotifiesOnceAndSurvivesDuplicateSubmittedEvent() throws Exception {
         save("denied", OrderStatus.PENDING, Instant.now()); // Total 10 would otherwise auto-approve.
         mvc.perform(post("/api/admin/orders/denied/deny")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("DENIED"));
         submitted.receive("{\"orderId\":\"denied\"}");
         mvc.perform(post("/api/admin/orders/denied/deny")).andExpect(status().isConflict());
         assertEquals(OrderStatus.DENIED, orders.findById("denied").orElseThrow().status());
+        verify(notifications).publish("denied", NotificationType.ORDER_DENIED, null);
+        verifyNoMoreInteractions(notifications);
         verifyNoInteractions(publisher);
     }
     @Test
@@ -134,6 +141,9 @@ class AdminOrderIntegrationTests {
         var status = orders.findById("race").orElseThrow().status();
         assertTrue(status == OrderStatus.APPROVED || status == OrderStatus.DENIED);
         verify(publisher, times(status == OrderStatus.APPROVED ? 1 : 0)).publish(any());
+        verify(notifications).publish("race", status == OrderStatus.APPROVED
+                ? NotificationType.ORDER_APPROVED : NotificationType.ORDER_DENIED, null);
+        verifyNoMoreInteractions(notifications);
     }
     @Test
     void failedPublicationDoesNotRollBackApproval() {

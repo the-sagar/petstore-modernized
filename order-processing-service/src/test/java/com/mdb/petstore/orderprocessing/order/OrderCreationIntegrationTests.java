@@ -36,7 +36,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest(properties = "spring.jms.listener.auto-startup=false")
+@SpringBootTest(properties = {"spring.jms.listener.auto-startup=false", "petstore.notification.enabled=true"})
 @AutoConfigureMockMvc
 class OrderCreationIntegrationTests {
 
@@ -227,6 +227,8 @@ class OrderCreationIntegrationTests {
         assertEquals(before.payment(), approved.payment());
         deliver(response.orderId());
         assertEquals(approved, orders.findById(response.orderId()).orElseThrow());
+        verify(jms).convertAndSend(eq("petstore.notification.requested"), argThat((String json) ->
+                mapper.readTree(json).get("notificationType").asString().equals("ORDER_APPROVED")));
         assertEquals(1, orders.count());
     }
 

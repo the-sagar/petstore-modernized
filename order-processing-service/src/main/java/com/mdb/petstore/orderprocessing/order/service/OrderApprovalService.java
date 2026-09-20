@@ -1,5 +1,7 @@
 package com.mdb.petstore.orderprocessing.order.service;
 
+import com.mdb.petstore.orderprocessing.order.notification.NotificationPublisher;
+import com.mdb.petstore.orderprocessing.order.notification.NotificationType;
 import com.mdb.petstore.orderprocessing.order.messaging.InventoryRequestedPublisher;
 import com.mdb.petstore.orderprocessing.order.model.Order;
 import com.mdb.petstore.orderprocessing.order.model.OrderStatus;
@@ -16,10 +18,12 @@ import org.springframework.stereotype.Service;
 public class OrderApprovalService {
     private static final Logger log = LoggerFactory.getLogger(OrderApprovalService.class);
     private final MongoTemplate mongo;
+    private final NotificationPublisher notifications;
     private final InventoryRequestedPublisher publisher;
 
-    public OrderApprovalService(MongoTemplate mongo, InventoryRequestedPublisher publisher) {
+    public OrderApprovalService(MongoTemplate mongo, InventoryRequestedPublisher publisher, NotificationPublisher notifications) {
         this.mongo = mongo;
+        this.notifications = notifications;
         this.publisher = publisher;
     }
 
@@ -28,6 +32,7 @@ public class OrderApprovalService {
                         .and("status").is(OrderStatus.PENDING)), Update.update("status", OrderStatus.APPROVED), Order.class);
         if (result.getModifiedCount() != 1) return false;
         log.info("Order approved orderId={} locale={} total={}", order.id(), order.locale(), order.totalPrice());
+        notifications.publish(order.id(), NotificationType.ORDER_APPROVED, null);
         // No distributed transaction: a failed send leaves APPROVED and requires replay/reconciliation.
         publisher.publish(order);
         return true;

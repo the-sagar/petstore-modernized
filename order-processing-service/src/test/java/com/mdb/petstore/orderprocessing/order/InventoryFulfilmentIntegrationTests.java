@@ -23,7 +23,7 @@ import tools.jackson.databind.ObjectMapper;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-@SpringBootTest(properties = "spring.jms.listener.auto-startup=false")
+@SpringBootTest(properties = {"spring.jms.listener.auto-startup=false", "petstore.notification.enabled=true"})
 class InventoryFulfilmentIntegrationTests {
     private static final String DATABASE = "petstore_fulfilment_test_" + UUID.randomUUID().toString().replace("-", "");
     @DynamicPropertySource
@@ -61,6 +61,7 @@ class InventoryFulfilmentIntegrationTests {
         assertTrue(approval.approve(order));
         assertFalse(approval.approve(order));
         verify(jms, times(1)).convertAndSend(eq("petstore.inventory.requested"), any(String.class));
+        verify(jms, times(1)).convertAndSend(eq("petstore.notification.requested"), any(String.class));
     }
     @Test
     void failedInventoryRequestPublicationLeavesApprovedForReconciliation() {
@@ -69,7 +70,8 @@ class InventoryFulfilmentIntegrationTests {
         assertThrows(UncategorizedJmsException.class, () -> approval.approve(order));
         assertEquals(OrderStatus.APPROVED, reload().status());
         assertFalse(approval.approve(order));
-        verify(jms, times(1)).convertAndSend(anyString(), any(String.class));
+        verify(jms, times(1)).convertAndSend(eq("petstore.inventory.requested"), any(String.class));
+        verify(jms, times(1)).convertAndSend(eq("petstore.notification.requested"), any(String.class));
     }
     @Test
     void partialThenFinalTracksQuantitiesAndPreservesSnapshot() {
@@ -78,12 +80,14 @@ class InventoryFulfilmentIntegrationTests {
         assertEquals(OrderStatus.SHIPPED_PART, reload().status());
         assertEquals(2, reload().lineItems().getFirst().quantityShipped());
         assertEquals(0, reload().lineItems().get(1).quantityShipped());
+        assertNotifications("ORDER_SHIPPED:pass-1");
         deliver("pass-2", true, line(2, "EST-2", 5));
         assertEquals(OrderStatus.COMPLETED, reload().status());
         assertEquals(before.totalPrice(), reload().totalPrice());
         assertEquals(before.createdAt(), reload().createdAt());
         assertEquals(before.lineItems().getFirst().unitPrice(), reload().lineItems().getFirst().unitPrice());
         assertEquals(List.of("pass-1", "pass-2"), reload().fulfilmentEventIds());
+        assertNotifications("ORDER_SHIPPED:pass-1", "ORDER_SHIPPED:pass-2", "ORDER_COMPLETED:pass-2");
     }
     @Test
     void duplicatePassDoesNotIncrementTwiceEvenBeforeCompletion() {
@@ -93,6 +97,7 @@ class InventoryFulfilmentIntegrationTests {
         deliver("pass-1", false, line(1, "EST-1", 1));
         assertEquals(partial, reload());
         assertEquals(1, reload().lineItems().getFirst().quantityShipped());
+        assertNotifications("ORDER_SHIPPED:pass-1");
     }
     @Test
     void completedOrderStableOnDuplicateAndDifferentEventId() {
@@ -103,6 +108,7 @@ class InventoryFulfilmentIntegrationTests {
         deliver("complete", true, line(1, "EST-1", 2), line(2, "EST-2", 5));
         deliver("another", true, line(1, "EST-1", 2));
         assertEquals(completed, reload());
+        assertNotifications("ORDER_SHIPPED:complete", "ORDER_COMPLETED:complete");
     }
     @Test
     void doesNotTrustCompleteHintOrDeliveryOrder() {
@@ -149,6 +155,7 @@ class InventoryFulfilmentIntegrationTests {
         assertEquals(2, reload().fulfilmentEventIds().size());
         assertEquals(2, reload().lineItems().getFirst().quantityShipped());
         assertEquals(5, reload().lineItems().get(1).quantityShipped());
+        verify(jms, times(3)).convertAndSend(eq("petstore.notification.requested"), any(String.class));
     }
     @Test
     void preexistingOrderWithoutTrackingFieldsCanBeFulfilled() {
@@ -160,6 +167,26 @@ class InventoryFulfilmentIntegrationTests {
         deliver("legacy-order", true, line(1, "EST-1", 2), line(2, "EST-2", 5));
         assertEquals(OrderStatus.COMPLETED, reload().status());
     }
+    @Test
+    void notificationBrokerFailureDoesNotFailAppliedFulfilment() {
+        order(OrderStatus.APPROVED);
+        doThrow(new UncategorizedJmsException("unavailable")).when(jms)
+                .convertAndSend(eq("petstore.notification.requested"), any(String.class));
+        assertDoesNotThrow(() -> deliver("complete", true, line(1, "EST-1", 2), line(2, "EST-2", 5)));
+        assertEquals(OrderStatus.COMPLETED, reload().status());
+        assertEquals(List.of("complete"), reload().fulfilmentEventIds());
+    }
+
+    private void assertNotifications(String... expected) {
+        var messages = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(jms, times(expected.length)).convertAndSend(eq("petstore.notification.requested"), messages.capture());
+        assertEquals(List.of(expected), messages.getAllValues().stream().map(json -> {
+            var tree = mapper.readTree(json);
+            assertEquals("order-1", tree.get("orderId").asString());
+            return tree.get("notificationType").asString() + ":" + tree.get("shipmentEventId").asString();
+        }).toList());
+    }
+
     private Order order(OrderStatus status) {
         orders.insert(new Order("order-1", "customer", "user", "demo@example.com", Instant.now(), "en-US", status,
                 null, null, null, List.of(new OrderLine(1, "FISH", "product-1", "EST-1", 2, new BigDecimal("10.00")),

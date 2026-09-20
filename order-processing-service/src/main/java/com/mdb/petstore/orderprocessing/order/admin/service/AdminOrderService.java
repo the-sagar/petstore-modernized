@@ -1,5 +1,7 @@
 package com.mdb.petstore.orderprocessing.order.admin.service;
 
+import com.mdb.petstore.orderprocessing.order.notification.NotificationPublisher;
+import com.mdb.petstore.orderprocessing.order.notification.NotificationType;
 import java.util.List;
 import com.mdb.petstore.orderprocessing.order.admin.dto.AdminOrderResponse;
 import com.mdb.petstore.orderprocessing.order.model.Order;
@@ -24,11 +26,13 @@ public class AdminOrderService {
     private final OrderRepository orders;
     private final OrderApprovalService approval;
     private final MongoTemplate mongo;
+    private final NotificationPublisher notifications;
 
-    public AdminOrderService(OrderRepository orders, OrderApprovalService approval, MongoTemplate mongo) {
+    public AdminOrderService(OrderRepository orders, OrderApprovalService approval, MongoTemplate mongo, NotificationPublisher notifications) {
         this.orders = orders;
         this.approval = approval;
         this.mongo = mongo;
+        this.notifications = notifications;
     }
 
     public List<AdminOrderResponse> list(OrderStatus status) {
@@ -51,6 +55,7 @@ public class AdminOrderService {
         var result = mongo.updateFirst(Query.query(Criteria.where("_id").is(id).and("status").is(OrderStatus.PENDING)),
                 Update.update("status", OrderStatus.DENIED), Order.class);
         if (result.getModifiedCount() != 1) throw conflict();
+        notifications.publish(id, NotificationType.ORDER_DENIED, null);
         log.info("Order manually denied orderId={}", id);
         return get(id);
     }

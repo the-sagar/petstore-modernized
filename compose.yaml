@@ -37,6 +37,14 @@ services:
     volumes:
       - petstore-artemis-data:/var/lib/artemis-instance
 
+  mailpit:
+    image: axllent/mailpit:v1.27.8
+    container_name: petstore-mailpit
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+
 volumes:
   petstore-mongo-data:
   petstore-artemis-data:

@@ -1,5 +1,7 @@
 package com.mdb.petstore.orderprocessing.order.messaging;
 
+import com.mdb.petstore.orderprocessing.order.notification.NotificationPublisher;
+import com.mdb.petstore.orderprocessing.order.notification.NotificationType;
 import java.util.ArrayList;
 import java.util.HashSet;
 import com.mdb.petstore.orderprocessing.order.model.Order;
@@ -23,12 +25,14 @@ public class InventoryFulfilledListener {
     private static final Logger log = LoggerFactory.getLogger(InventoryFulfilledListener.class);
     private final OrderRepository orders;
     private final MongoTemplate mongo;
+    private final NotificationPublisher notifications;
     private final ObjectMapper mapper;
     private final Validator validator;
 
-    public InventoryFulfilledListener(OrderRepository orders, MongoTemplate mongo, ObjectMapper mapper, Validator validator) {
+    public InventoryFulfilledListener(OrderRepository orders, MongoTemplate mongo, ObjectMapper mapper, Validator validator, NotificationPublisher notifications) {
         this.orders = orders;
         this.mongo = mongo;
+        this.notifications = notifications;
         this.mapper = mapper;
         this.validator = validator;
     }
@@ -82,6 +86,10 @@ public class InventoryFulfilledListener {
             // MongoTemplate increments @Version together with quantities, status, and the receipt.
             if (mongo.updateFirst(query, update, Order.class).getModifiedCount() == 1) {
                 log.info("Order fulfilment applied orderId={} eventId={} status={}", order.id(), event.eventId(), status);
+                notifications.publish(order.id(), NotificationType.ORDER_SHIPPED, event.eventId());
+                if (status == OrderStatus.COMPLETED) {
+                    notifications.publish(order.id(), NotificationType.ORDER_COMPLETED, event.eventId());
+                }
                 return;
             }
         }
