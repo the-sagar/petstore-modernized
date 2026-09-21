@@ -4,26 +4,7 @@ The implemented lifecycle separates order acceptance, approval and fulfilment. B
 
 ## Synchronous checkout
 
-```mermaid
-sequenceDiagram
-    actor Browser
-    participant S as Storefront :8080
-    participant C as Session / catalog / account
-    participant O as Order Processing :8081
-    participant M as MongoDB petstore_orders
-    participant J as Artemis
-    Browser->>S: POST /api/checkout with session and CSRF
-    S->>C: Resolve authenticated customer and nonempty cart
-    C-->>S: Current prices, quantities and payment display metadata
-    S->>O: POST /api/orders using RestClient
-    O->>O: Validate, generate ID and time, calculate total, set PENDING
-    O->>M: Insert Order
-    M-->>O: Persistence acknowledged
-    O->>J: Publish OrderSubmitted with orderId
-    O-->>S: 201 with orderId, status, createdAt and totalPrice
-    S->>S: Validate response and clear cart
-    S-->>Browser: Render confirmation
-```
+![Synchronous checkout: validate the 201 acknowledgement before clearing the cart; failures retain it](images/02-synchronous-checkout.svg)
 
 `POST /api/checkout?locale=en-US` requires authentication and CSRF. The browser supplies `billingInfo` and `shippingInfo` contact snapshots only. The shared locale resolver supplies the effective supported request locale, which becomes Order.locale. Identity/email come from the authenticated User/Customer, quantities from the server session, prices and category/product IDs from current CatalogService results. Sequential line numbers follow deterministic cart order. Catalog fallback remains requested locale → en-US → first detail; EST-15 does not gain a Japanese detail.
 
@@ -39,14 +20,7 @@ The response is HTTP 201 with Location `/api/orders/{orderId}` and `{orderId, st
 
 ## Approval and lifecycle
 
-```mermaid
-flowchart LR
-    P[PENDING] -->|Automatic threshold or manual approval| A[APPROVED]
-    P -->|Admin denies| D[DENIED]
-    A -->|Some lines shipped| S[SHIPPED_PART]
-    A -->|All lines shipped| C[COMPLETED]
-    S -->|Remaining lines shipped| C
-```
+![Order lifecycle: approval and denial, partial shipment and cumulative completion](images/03-order-lifecycle.svg)
 
 OrderSubmitted on `petstore.order.submitted` contains only orderId. The listener reloads MongoDB state and handles only PENDING orders. `ApprovalPolicy` uses BigDecimal.compareTo with strict thresholds:
 
@@ -83,15 +57,7 @@ Notifications run inside the Order Processing Service, not a fourth service or S
 
 A duplicate submission/decision that loses the atomic transition creates no new approval/denial request. A duplicate fulfilment event creates no intentional repeat shipment request. These rules are business-event guards, not exactly-once email delivery.
 
-```mermaid
-flowchart LR
-    T[Successful Order transition] --> P[NotificationPublisher]
-    P --> Q[Artemis: petstore.notification.requested]
-    Q --> L[NotificationListener in Order Processing]
-    L --> R[Reload authoritative Order by ID]
-    R --> M[Spring Mail with order-time email and locale]
-    M --> S["SMTP; Mailpit locally"]
-```
+![Legacy and modern customer notification pipelines, with authoritative Order reload and best-effort delivery](images/04-notification-flow.svg)
 
 `NotificationRequested` contains `notificationId`, `orderId`, `notificationType` and optional `shipmentEventId`; it carries no recipient, address, payment or full Order data. The listener reloads Order, verifies any shipment receipt, and selects en-US, ja-JP or zh-CN message bundles from Order.locale, falling back to English. English subjects retain `Java Pet Store Order Status: <orderId>`, `Java Pet Store Order Shipped: <orderId>` and `Java Pet Store Order COMPLETED: <orderId>`.
 

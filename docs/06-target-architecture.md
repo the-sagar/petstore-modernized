@@ -14,46 +14,7 @@ There are three independently deployable services, with no shared MongoDB entiti
 
 ## Canonical current-state architecture
 
-```mermaid
-flowchart TB
-    C["Customer browser"] --> S
-    A["Admin browser"] --> S
-    U["Supplier browser"] --> S
-    S["Storefront Service :8080<br/>Customer UI, Account, catalog and cart<br/>Checkout and operational HTTP proxies"]
-    S --> SD[(petstore_storefront)]
-    S -->|"HTTP: order creation, Admin orders and statistics"| O
-    S -->|"HTTP: inventory, fulfilment and retry"| P
-
-    subgraph OP["Order Processing Service :8081"]
-        O["Order creation and Admin order APIs<br/>Automatic/manual approval and denial<br/>Fulfilment lifecycle<br/>Admin statistics aggregation"]
-        N["Notification listener"]
-        M["Spring Mail"]
-        N --> M
-    end
-    O --> OD[(petstore_orders)]
-    N -->|"Reload authoritative Order"| OD
-
-    subgraph SUP["Supplier Service :8082"]
-        P["Inventory and allocation<br/>Partial fulfilment and shipment history<br/>Replenishment and retry"]
-    end
-    P --> PD[(petstore_supplier)]
-
-    subgraph MQ["ActiveMQ Artemis :61616"]
-        QO["petstore.order.submitted"]
-        QR["petstore.inventory.requested"]
-        QF["petstore.inventory.fulfilled"]
-        QN["petstore.notification.requested"]
-    end
-    O --> QO
-    QO --> O
-    O --> QR
-    QR --> P
-    P --> QF
-    QF --> O
-    O --> QN
-    QN --> N
-    M -->|"SMTP: configured endpoint"| SMTP["SMTP server<br/>Local development: Mailpit<br/>SMTP :1025, UI :8025"]
-```
+![Current Java Pet Store architecture: browser entry, service-owned databases, HTTP calls, Artemis queues and local email delivery](images/01-current-architecture.svg)
 
 Browser application requests enter only through Storefront. Storefront never directly reads the Order Processing or Supplier MongoDB databases; each service owns its DTOs and persistence. HTTP serves synchronous acknowledgement-oriented interactions; Artemis carries asynchronous workflow events. Mailpit supplies local SMTP; production SMTP is configured separately. RestClient handles checkout acknowledgement and operational API calls. ROLE_ADMIN and ROLE_SUPPLIER protect separate Storefront pages/proxies; ADMIN does not imply SUPPLIER. CSRF protects mutations, with the existing login/registration exemptions. Backend APIs have no service-to-service authentication/TLS yet and must not be treated as publicly secured APIs.
 

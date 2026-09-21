@@ -135,19 +135,7 @@ The legacy system uses both synchronous request processing and asynchronous mess
 
 ### Synchronous example: Account / Customer
 
-```text
-HTTP Request
-    ↓
-HTMLAction
-    ↓
-Event
-    ↓
-EJBAction
-    ↓
-EJB
-    ↓
-Cloudscape
-```
+![Legacy synchronous Account and Customer request through HTMLAction, Event, EJBAction, EJB and Cloudscape](images/05-legacy-account-flow.svg)
 
 The web framework uses `Event` objects as in-process commands, not JMS messages.
 
@@ -155,29 +143,7 @@ The web framework uses `Event` objects as in-process commands, not JMS messages.
 
 Runtime instrumentation confirmed a flow equivalent to:
 
-```text
-Checkout
-    ↓
-OrderHTMLAction
-    ↓
-OrderEJBAction
-    ↓
-AsyncSenderEJB
-    ↓
-JMS
-    ↓
-PurchaseOrderMDB
-    ↓
-Approval processing
-    ↓
-SupplierOrderMDB
-    ↓
-Order fulfilment
-    ↓
-InvoiceMDB
-    ↓
-Order completion
-```
+![Legacy asynchronous checkout, approval, Supplier fulfilment and invoice completion flow](images/06-legacy-order-flow.svg)
 
 This distinction is important to the target design: messaging is used for the genuine asynchronous approval and fulfilment boundaries, while account operations remain synchronous.
 
@@ -189,18 +155,7 @@ The account domain is implemented using EJB CMP/CMR-style persistence.
 
 One logical customer is spread across multiple entities and tables:
 
-```text
-User
-  │
-Customer
-  │
-  ├── Account
-  │     ├── ContactInfo
-  │     │      └── Address
-  │     └── CreditCard
-  │
-  └── Profile
-```
+![Legacy User and Customer relationships to Account, ContactInfo, Address, CreditCard and Profile](images/07-legacy-customer-relationships.svg)
 
 Relevant Cloudscape tables include:
 

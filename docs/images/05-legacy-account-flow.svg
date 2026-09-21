@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="460" viewBox="0 0 1000 460" role="img" aria-labelledby="title desc">
+<title id="title">Legacy · synchronous account request</title><desc id="desc">Historical Account / Customer path · in-process framework commands</desc>
+<!-- Shared visual system: Arial/Helvetica; 32/24/20px; explicit off-white background.
+     Rounded service cards; green database cylinders; violet event pills.
+     Dashed arrow = asynchronous messaging. Other connectors are labeled by context. -->
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9 Z" fill="#596572"/></marker></defs>
+<g font-family="Arial, Helvetica, sans-serif" fill="#25313c">
+<rect width="1000" height="460" fill="#fafaf7"/>
+<text x="36" y="48" font-size="32" font-weight="600" text-anchor="start" fill="#25313c">Legacy · synchronous account request</text>
+<text x="36" y="82" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Historical Account / Customer path · in-process framework commands</text>
+<rect x="36" y="132" width="292" height="68" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="182.0" y="173.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">HTTP Request</text>
+<rect x="354" y="132" width="292" height="68" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="500.0" y="173.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">HTMLAction</text>
+<rect x="672" y="132" width="292" height="68" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="818.0" y="173.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">Event</text>
+<rect x="672" y="278" width="292" height="68" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="818.0" y="319.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">EJBAction</text>
+<rect x="354" y="278" width="292" height="68" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="500.0" y="319.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">EJB</text>
+<rect x="36" y="278" width="292" height="68" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="182.0" y="319.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">Cloudscape</text>
+<path d="M328 166 H350" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M646 166 H668" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M818 200 V274" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M672 312 H650" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M354 312 H332" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="36" y="406" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Solid arrows = synchronous processing and persistence.</text>
+<text x="36" y="435" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Event is an in-process command, not a JMS message.</text>
+</g></svg>

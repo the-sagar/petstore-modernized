@@ -778,11 +778,7 @@ Order Processing uses `petstore.notification.enabled=${NOTIFICATION_ENABLED:true
 
 The local flow is:
 
-```text
-Order Processing → Artemis queue petstore.notification.requested
-→ notification listener → Spring Mail → Mailpit SMTP localhost:1025
-→ Mailpit browser UI http://localhost:8025
-```
+![Local email delivery through Artemis and Order Processing to Mailpit SMTP on 1025 and inbox UI on 8025](images/08-local-email-delivery.svg)
 
 Identifier-only events cause the listener to reload the authoritative Order and its order-time email. Approved/denied decisions produce status emails; each new shipment pass produces a shipped email; final fulfilment also produces a completed email. Fake customer addresses are acceptable locally.
 

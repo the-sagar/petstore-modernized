@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="920" viewBox="0 0 1000 920" role="img" aria-labelledby="title desc">
+<title id="title">Checkout · acknowledgement boundary</title><desc id="desc">Acceptance is confirmed before the Storefront cart is cleared.</desc>
+<!-- Shared visual system: Arial/Helvetica; 32/24/20px; explicit off-white background.
+     Rounded service cards; green database cylinders; violet event pills.
+     Dashed arrow = asynchronous messaging. Other connectors are labeled by context. -->
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9 Z" fill="#596572"/></marker></defs>
+<g font-family="Arial, Helvetica, sans-serif" fill="#25313c">
+<rect width="1000" height="920" fill="#fafaf7"/>
+<text x="36" y="48" font-size="32" font-weight="600" text-anchor="start" fill="#25313c">Checkout · acknowledgement boundary</text>
+<text x="36" y="82" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Acceptance is confirmed before the Storefront cart is cleared.</text>
+<rect x="36" y="120" width="290" height="115" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="56" y="154" font-size="24" font-weight="600" text-anchor="start" fill="#25313c">Customer Browser</text>
+<text x="56" y="185" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">POST /api/checkout</text>
+<text x="56" y="212" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Session + CSRF</text>
+<path d="M326 177 H368" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="372" y="120" width="592" height="115" rx="12" fill="#edf3fc" stroke="#4775ac" stroke-width="1.5"/>
+<text x="392" y="154" font-size="24" font-weight="600" text-anchor="start" fill="#25313c">Storefront Service :8080</text>
+<text x="392" y="185" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Resolve Cart + Customer + Catalog</text>
+<text x="392" y="212" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Session quantities · current prices · order-time snapshot</text>
+<path d="M668 235 V307" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="688" y="279" font-size="22" font-weight="600" text-anchor="start" fill="#25313c">HTTP POST /api/orders</text>
+<rect x="372" y="311" width="592" height="153" rx="12" fill="#eaf5f2" stroke="#357c70" stroke-width="1.5"/>
+<text x="392" y="345" font-size="24" font-weight="600" text-anchor="start" fill="#25313c">Order Processing Service :8081</text>
+<text x="392" y="376" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Validate · recalculate total · generate ID / time</text>
+<text x="392" y="403" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Persist Order as PENDING in petstore_orders</text>
+<text x="392" y="430" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Publish OrderSubmitted before returning</text>
+<text x="36" y="361" font-size="20" font-weight="600" text-anchor="start" fill="#25313c">SYNCHRONOUS</text>
+<text x="36" y="392" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">HTTP acknowledgement</text>
+<text x="36" y="423" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Supplier work is separate.</text>
+<path d="M525 464 V531" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="391" y="505" font-size="22" font-weight="600" text-anchor="start" fill="#25313c">201 Created</text>
+<path d="M915 464 V531" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="690" y="494" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Failure /</text>
+<text x="690" y="521" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">invalid response</text>
+<rect x="36" y="535" width="577" height="151" rx="12" fill="#edf3fc" stroke="#4775ac" stroke-width="1.5"/>
+<text x="56" y="569" font-size="24" font-weight="600" text-anchor="start" fill="#25313c">Storefront validates the response</text>
+<text x="56" y="600" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Cart is cleared only after confirmed 201</text>
+<text x="56" y="627" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Then render the order confirmation</text>
+<rect x="649" y="535" width="315" height="151" rx="12" fill="#edf3fc" stroke="#4775ac" stroke-width="1.5"/>
+<text x="669" y="569" font-size="24" font-weight="600" text-anchor="start" fill="#25313c">Storefront keeps cart</text>
+<text x="669" y="600" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Timeout · downstream error</text>
+<text x="669" y="627" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">or invalid acknowledgement</text>
+<rect x="36" y="720" width="928" height="112" rx="12" fill="#fbefeb" stroke="#aa6353" stroke-width="1.5"/>
+<text x="56" y="754" font-size="22" font-weight="600" text-anchor="start" fill="#25313c">Retry limitation</text>
+<text x="56" y="784" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Lost acknowledgement after persistence can still create retry duplication;</text>
+<text x="56" y="809" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">no request-level idempotency key.</text>
+<text x="36" y="861" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Persistence and OrderSubmitted publication are not atomic.</text>
+<text x="36" y="890" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">A failed send can leave PENDING persisted while the HTTP request fails.</text>
+</g></svg>

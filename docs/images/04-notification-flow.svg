@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1155" viewBox="0 0 1000 1155" role="img" aria-labelledby="title desc">
+<title id="title">Customer notifications · legacy to modern</title><desc id="desc">The business transition commits before best-effort email delivery.</desc>
+<!-- Shared visual system: Arial/Helvetica; 32/24/20px; explicit off-white background.
+     Rounded service cards; green database cylinders; violet event pills.
+     Dashed arrow = asynchronous messaging. Other connectors are labeled by context. -->
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9 Z" fill="#596572"/></marker></defs>
+<g font-family="Arial, Helvetica, sans-serif" fill="#25313c">
+<rect width="1000" height="1155" fill="#fafaf7"/>
+<text x="36" y="48" font-size="32" font-weight="600" text-anchor="start" fill="#25313c">Customer notifications · legacy to modern</text>
+<text x="36" y="82" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">The business transition commits before best-effort email delivery.</text>
+<text x="36" y="126" font-size="24" font-weight="600" text-anchor="start" fill="#25313c">LEGACY</text>
+<text x="382" y="126" font-size="24" font-weight="600" text-anchor="start" fill="#25313c">MODERN · ORDER PROCESSING</text>
+<rect x="36" y="151" width="285" height="64" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="178.5" y="190.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">Business transition</text>
+<path d="M178 215 V271" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+<rect x="36" y="275" width="285" height="64" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="178.5" y="314.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">MDB</text>
+<path d="M178 339 V395" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="36" y="399" width="285" height="64" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="178.5" y="438.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">XML / XSLT</text>
+<path d="M178 463 V519" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+<rect x="36" y="523" width="285" height="64" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="178.5" y="562.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">MailerMDB</text>
+<path d="M178 587 V643" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="36" y="647" width="285" height="64" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="178.5" y="686.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">SMTP</text>
+<text x="36" y="767" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Conceptual legacy pipeline</text>
+<text x="36" y="798" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">MDBs + XML transformation</text>
+<text x="36" y="829" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">+ MailQueue delivery</text>
+<rect x="382" y="151" width="582" height="64" rx="12" fill="#eaf5f2" stroke="#357c70" stroke-width="1.5"/>
+<text x="673.0" y="190.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">Business transition</text>
+<path d="M673 215 V244" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+<rect x="382" y="248" width="582" height="91" rx="12" fill="#f2eef9" stroke="#8264a3" stroke-width="1.5"/>
+<text x="402" y="282" font-size="24" font-weight="600" text-anchor="start" fill="#25313c">NotificationRequested</text>
+<text x="402" y="313" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Identifier-only event · no customer/contact payload</text>
+<path d="M673 339 V369" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+<rect x="382" y="373" width="582" height="91" rx="12" fill="#f2eef9" stroke="#8264a3" stroke-width="1.5"/>
+<text x="402" y="407" font-size="24" font-weight="600" text-anchor="start" fill="#25313c">ActiveMQ Artemis</text>
+<text x="402" y="438" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">petstore.notification.requested</text>
+<path d="M673 464 V494" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+<rect x="382" y="498" width="582" height="60" rx="12" fill="#eaf5f2" stroke="#357c70" stroke-width="1.5"/>
+<text x="673.0" y="535.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">Notification Listener</text>
+<path d="M673 558 V588" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M382 606 C382 587 964 587 964 606 V653 C964 674 382 674 382 653 Z" fill="#eef4ea" stroke="#65815a" stroke-width="1.5"/>
+<ellipse cx="673.0" cy="606" rx="291.0" ry="14" fill="#eef4ea" stroke="#65815a" stroke-width="1.5"/>
+<text x="673.0" y="644" font-size="20" font-weight="600" text-anchor="middle" fill="#25313c">petstore_orders · reload authoritative Order</text>
+<path d="M673 671 V707" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="382" y="711" width="582" height="100" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="402" y="745" font-size="24" font-weight="600" text-anchor="start" fill="#25313c">Spring Mail</text>
+<text x="402" y="776" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Recipient + locale come from the Order snapshot.</text>
+<path d="M673 811 V845" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="382" y="849" width="582" height="60" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="673.0" y="886.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">SMTP</text>
+<rect x="36" y="939" width="928" height="91" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="56" y="973" font-size="22" font-weight="600" text-anchor="start" fill="#25313c">SMTP failure does not roll back business state.</text>
+<text x="56" y="1005" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Delivery is best-effort, not exactly-once; publication can be lost, email duplicated.</text>
+<text x="36" y="1068" font-size="20" font-weight="600" text-anchor="start" fill="#25313c">NOTIFICATION TYPES</text>
+<rect x="36" y="1086" width="216" height="44" rx="12" fill="#eaf5f2" stroke="#357c70" stroke-width="1.5"/>
+<text x="144.0" y="1115.0" font-size="20" font-weight="600" text-anchor="middle" fill="#25313c">APPROVED</text>
+<rect x="268" y="1086" width="216" height="44" rx="12" fill="#fbefeb" stroke="#aa6353" stroke-width="1.5"/>
+<text x="376.0" y="1115.0" font-size="20" font-weight="600" text-anchor="middle" fill="#25313c">DENIED</text>
+<rect x="500" y="1086" width="216" height="44" rx="12" fill="#fcf3e4" stroke="#a37834" stroke-width="1.5"/>
+<text x="608.0" y="1115.0" font-size="20" font-weight="600" text-anchor="middle" fill="#25313c">SHIPPED</text>
+<rect x="732" y="1086" width="232" height="44" rx="12" fill="#dceee5" stroke="#357c70" stroke-width="1.5"/>
+<text x="848.0" y="1115.0" font-size="20" font-weight="600" text-anchor="middle" fill="#25313c">COMPLETED</text>
+</g></svg>

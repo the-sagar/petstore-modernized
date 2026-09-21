@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="925" viewBox="0 0 1000 925" role="img" aria-labelledby="title desc">
+<title id="title">Order lifecycle · decisions and fulfilment</title><desc id="desc">State transitions in Order Processing; event labels identify the workflow triggers.</desc>
+<!-- Shared visual system: Arial/Helvetica; 32/24/20px; explicit off-white background.
+     Rounded service cards; green database cylinders; violet event pills.
+     Dashed arrow = asynchronous messaging. Other connectors are labeled by context. -->
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9 Z" fill="#596572"/></marker></defs>
+<g font-family="Arial, Helvetica, sans-serif" fill="#25313c">
+<rect width="1000" height="925" fill="#fafaf7"/>
+<text x="36" y="48" font-size="32" font-weight="600" text-anchor="start" fill="#25313c">Order lifecycle · decisions and fulfilment</text>
+<text x="36" y="82" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">State transitions in Order Processing; event labels identify the workflow triggers.</text>
+<rect x="36" y="124" width="260" height="46" rx="12" fill="#f2eef9" stroke="#8264a3" stroke-width="1.5"/>
+<text x="166.0" y="154.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">OrderSubmitted</text>
+<path d="M166 170 V205" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+<rect x="36" y="209" width="260" height="64" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="166.0" y="248.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">PENDING</text>
+<path d="M166 273 V407" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="187" y="329" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Automatic policy</text>
+<text x="187" y="356" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">or Admin approval</text>
+<path d="M296 241 H383" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="308" y="195" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Admin denies</text>
+<rect x="387" y="209" width="195" height="64" rx="12" fill="#fbefeb" stroke="#aa6353" stroke-width="1.5"/>
+<text x="484.5" y="248.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">DENIED</text>
+<rect x="624" y="124" width="340" height="259" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="644" y="158" font-size="24" font-weight="600" text-anchor="start" fill="#25313c">Auto-approval policy</text>
+<text x="644" y="189" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">en-US total &lt; 500</text>
+<text x="644" y="216" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">ja-JP total &lt; 50,000</text>
+<text x="644" y="243" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">At / above boundary: PENDING</text>
+<text x="644" y="270" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Unsupported policy locale:</text>
+<text x="644" y="297" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">PENDING</text>
+<rect x="36" y="411" width="260" height="64" rx="12" fill="#eaf5f2" stroke="#357c70" stroke-width="1.5"/>
+<text x="166.0" y="450.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">APPROVED</text>
+<rect x="350" y="411" width="614" height="91" rx="12" fill="#f2eef9" stroke="#8264a3" stroke-width="1.5"/>
+<text x="370" y="447" font-size="22" font-weight="600" text-anchor="start" fill="#25313c">InventoryRequested</text>
+<text x="370" y="479" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Published after approval; Supplier allocates stock.</text>
+<path d="M296 443 H347" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+<path d="M166 475 V594 H384" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+<text x="186" y="544" font-size="20" font-weight="600" text-anchor="start" fill="#25313c">InventoryFulfilled</text>
+<text x="186" y="573" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Some lines shipped</text>
+<rect x="388" y="562" width="266" height="64" rx="12" fill="#fcf3e4" stroke="#a37834" stroke-width="1.5"/>
+<text x="521.0" y="601.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">SHIPPED_PART</text>
+<path d="M521 626 V737" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+<text x="541" y="677" font-size="20" font-weight="600" text-anchor="start" fill="#25313c">InventoryFulfilled</text>
+<text x="541" y="706" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Remaining quantities shipped</text>
+<path d="M90 475 V769 H384" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+<text x="110" y="688" font-size="20" font-weight="600" text-anchor="start" fill="#25313c">InventoryFulfilled</text>
+<text x="110" y="718" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">All lines shipped</text>
+<rect x="388" y="741" width="266" height="64" rx="12" fill="#dceee5" stroke="#357c70" stroke-width="1.5"/>
+<text x="521.0" y="780.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">COMPLETED</text>
+<rect x="394" y="747" width="254" height="52" rx="8" fill="none" stroke="#357c70" stroke-width="1"/>
+<text x="36" y="856" font-size="22" font-weight="600" text-anchor="start" fill="#25313c">Completion is derived from cumulative shipped quantities.</text>
+<text x="36" y="886" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">The incoming completion hint is not authoritative. Dashed = event-driven transition.</text>
+</g></svg>

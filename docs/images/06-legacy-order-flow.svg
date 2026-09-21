@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="910" viewBox="0 0 1000 910" role="img" aria-labelledby="title desc">
+<title id="title">Legacy · asynchronous order processing</title><desc id="desc">Historical runtime flow · JMS separates checkout from the business workflow.</desc>
+<!-- Shared visual system: Arial/Helvetica; 32/24/20px; explicit off-white background.
+     Rounded service cards; green database cylinders; violet event pills.
+     Dashed arrow = asynchronous messaging. Other connectors are labeled by context. -->
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9 Z" fill="#596572"/></marker></defs>
+<g font-family="Arial, Helvetica, sans-serif" fill="#25313c">
+<rect width="1000" height="910" fill="#fafaf7"/>
+<text x="36" y="48" font-size="32" font-weight="600" text-anchor="start" fill="#25313c">Legacy · asynchronous order processing</text>
+<text x="36" y="82" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Historical runtime flow · JMS separates checkout from the business workflow.</text>
+<rect x="36" y="135" width="378" height="64" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="225.0" y="174.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">Checkout</text>
+<path d="M225 199 V264" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="36" y="268" width="378" height="64" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="225.0" y="307.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">OrderHTMLAction</text>
+<path d="M225 332 V397" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="36" y="401" width="378" height="64" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="225.0" y="440.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">OrderEJBAction</text>
+<path d="M225 465 V530" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="36" y="534" width="378" height="64" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="225.0" y="573.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">AsyncSenderEJB</text>
+<path d="M225 598 V642 H338" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+<rect x="342" y="619" width="128" height="46" rx="12" fill="#f2eef9" stroke="#8264a3" stroke-width="1.5"/>
+<text x="406.0" y="649.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">JMS</text>
+<path d="M470 642 H574 V167 H612" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+<rect x="616" y="135" width="348" height="64" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="790.0" y="174.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">PurchaseOrderMDB</text>
+<path d="M790 199 V244" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="616" y="248" width="348" height="64" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="790.0" y="287.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">Approval processing</text>
+<path d="M790 312 V357" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+<rect x="616" y="361" width="348" height="64" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="790.0" y="400.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">SupplierOrderMDB</text>
+<path d="M790 425 V470" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="616" y="474" width="348" height="64" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="790.0" y="513.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">Order fulfilment</text>
+<path d="M790 538 V583" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+<rect x="616" y="587" width="348" height="64" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="790.0" y="626.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">InvoiceMDB</text>
+<path d="M790 651 V696" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="616" y="700" width="348" height="64" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="790.0" y="739.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">Order completion</text>
+<text x="36" y="819" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Solid = processing step · dashed = asynchronous JMS boundary</text>
+<text x="36" y="855" font-size="22" font-weight="600" text-anchor="start" fill="#25313c">Approval and fulfilment remain distinct business stages.</text>
+</g></svg>

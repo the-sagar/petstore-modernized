@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1450" viewBox="0 0 1000 1450" role="img" aria-labelledby="title desc">
+<title id="title">Java Pet Store · current architecture</title><desc id="desc">Three services · private data ownership · HTTP and event boundaries</desc>
+<!-- Shared visual system: Arial/Helvetica; 32/24/20px; explicit off-white background.
+     Rounded service cards; green database cylinders; violet event pills.
+     Dashed arrow = asynchronous messaging. Other connectors are labeled by context. -->
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9 Z" fill="#596572"/></marker></defs>
+<g font-family="Arial, Helvetica, sans-serif" fill="#25313c">
+<rect width="1000" height="1450" fill="#fafaf7"/>
+<text x="36" y="48" font-size="32" font-weight="600" text-anchor="start" fill="#25313c">Java Pet Store · current architecture</text>
+<text x="36" y="82" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Three services · private data ownership · HTTP and event boundaries</text>
+<rect x="36" y="112" width="288" height="52" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="180.0" y="145.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">Customer browser</text>
+<path d="M180 164 V186 H340 V210" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="356" y="112" width="288" height="52" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="500.0" y="145.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">Admin browser</text>
+<path d="M500 164 V186 H340 V210" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="676" y="112" width="288" height="52" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="820.0" y="145.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">Supplier browser</text>
+<path d="M820 164 V186 H340 V210" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="36" y="210" width="608" height="130" rx="12" fill="#edf3fc" stroke="#4775ac" stroke-width="1.5"/>
+<text x="56" y="244" font-size="24" font-weight="600" text-anchor="start" fill="#25313c">Storefront Service :8080</text>
+<text x="56" y="275" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Identity &amp; Customer · Catalog &amp; Search</text>
+<text x="56" y="302" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Cart &amp; Checkout · Browser UI</text>
+<path d="M644 269 H700" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="660" y="251" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">owns</text>
+<path d="M712 247 C712 228 964 228 964 247 V294 C964 315 712 315 712 294 Z" fill="#eef4ea" stroke="#65815a" stroke-width="1.5"/>
+<ellipse cx="838.0" cy="247" rx="126.0" ry="14" fill="#eef4ea" stroke="#65815a" stroke-width="1.5"/>
+<text x="838.0" y="285" font-size="20" font-weight="600" text-anchor="middle" fill="#25313c">petstore_storefront</text>
+<path d="M470 340 V430" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M620 340 V354 H944 V430" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="36" y="384" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Order creation · Admin orders</text>
+<text x="36" y="411" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Admin statistics</text>
+<text x="545" y="384" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Inventory · fulfilment views</text>
+<text x="545" y="411" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Retry / replenishment</text>
+<rect x="36" y="430" width="448" height="155" rx="12" fill="#eaf5f2" stroke="#357c70" stroke-width="1.5"/>
+<text x="56" y="464" font-size="24" font-weight="600" text-anchor="start" fill="#25313c">Order Processing Service :8081</text>
+<text x="56" y="495" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Order lifecycle · Approval / Denial</text>
+<text x="56" y="522" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Admin statistics · Notifications</text>
+<rect x="516" y="430" width="448" height="155" rx="12" fill="#fcf3e4" stroke="#a37834" stroke-width="1.5"/>
+<text x="536" y="464" font-size="24" font-weight="600" text-anchor="start" fill="#25313c">Supplier Service :8082</text>
+<text x="536" y="495" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Inventory · Allocation</text>
+<text x="536" y="522" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Partial fulfilment · Replenishment</text>
+<path d="M260 585 V618" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M100 635 C100 616 420 616 420 635 V682 C420 703 100 703 100 682 Z" fill="#eef4ea" stroke="#65815a" stroke-width="1.5"/>
+<ellipse cx="260.0" cy="635" rx="160.0" ry="14" fill="#eef4ea" stroke="#65815a" stroke-width="1.5"/>
+<text x="260.0" y="673" font-size="20" font-weight="600" text-anchor="middle" fill="#25313c">petstore_orders</text>
+<path d="M740 585 V618" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M580 635 C580 616 900 616 900 635 V682 C900 703 580 703 580 682 Z" fill="#eef4ea" stroke="#65815a" stroke-width="1.5"/>
+<ellipse cx="740.0" cy="635" rx="160.0" ry="14" fill="#eef4ea" stroke="#65815a" stroke-width="1.5"/>
+<text x="740.0" y="673" font-size="20" font-weight="600" text-anchor="middle" fill="#25313c">petstore_supplier</text>
+<text x="36" y="732" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">MongoDB databases are service-owned; no cross-service access.</text>
+<rect x="36" y="758" width="928" height="352" rx="12" fill="#f2eef9" stroke="#8264a3" stroke-width="1.5"/>
+<text x="56" y="793" font-size="24" font-weight="600" text-anchor="start" fill="#25313c">ActiveMQ Artemis :61616</text>
+<text x="56" y="823" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Producer → queue → consumer · endpoints repeat the services above</text>
+<rect x="56" y="843" width="220" height="46" rx="12" fill="#eaf5f2" stroke="#357c70" stroke-width="1.5"/>
+<text x="166.0" y="873.0" font-size="20" font-weight="600" text-anchor="middle" fill="#25313c">Order Processing</text>
+<path d="M276 866 H306" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+<rect x="309" y="843" width="382" height="46" rx="12" fill="#f2eef9" stroke="#8264a3" stroke-width="1.5"/>
+<text x="500.0" y="873.0" font-size="20" font-weight="600" text-anchor="middle" fill="#25313c">petstore.order.submitted</text>
+<path d="M691 866 H721" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+<rect x="724" y="843" width="220" height="46" rx="12" fill="#eaf5f2" stroke="#357c70" stroke-width="1.5"/>
+<text x="834.0" y="873.0" font-size="20" font-weight="600" text-anchor="middle" fill="#25313c">Order Processing</text>
+<rect x="56" y="905" width="220" height="46" rx="12" fill="#eaf5f2" stroke="#357c70" stroke-width="1.5"/>
+<text x="166.0" y="935.0" font-size="20" font-weight="600" text-anchor="middle" fill="#25313c">Order Processing</text>
+<path d="M276 928 H306" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+<rect x="309" y="905" width="382" height="46" rx="12" fill="#f2eef9" stroke="#8264a3" stroke-width="1.5"/>
+<text x="500.0" y="935.0" font-size="20" font-weight="600" text-anchor="middle" fill="#25313c">petstore.inventory.requested</text>
+<path d="M691 928 H721" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+<rect x="724" y="905" width="220" height="46" rx="12" fill="#fcf3e4" stroke="#a37834" stroke-width="1.5"/>
+<text x="834.0" y="935.0" font-size="20" font-weight="600" text-anchor="middle" fill="#25313c">Supplier</text>
+<rect x="56" y="967" width="220" height="46" rx="12" fill="#fcf3e4" stroke="#a37834" stroke-width="1.5"/>
+<text x="166.0" y="997.0" font-size="20" font-weight="600" text-anchor="middle" fill="#25313c">Supplier</text>
+<path d="M276 990 H306" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+<rect x="309" y="967" width="382" height="46" rx="12" fill="#f2eef9" stroke="#8264a3" stroke-width="1.5"/>
+<text x="500.0" y="997.0" font-size="20" font-weight="600" text-anchor="middle" fill="#25313c">petstore.inventory.fulfilled</text>
+<path d="M691 990 H721" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+<rect x="724" y="967" width="220" height="46" rx="12" fill="#eaf5f2" stroke="#357c70" stroke-width="1.5"/>
+<text x="834.0" y="997.0" font-size="20" font-weight="600" text-anchor="middle" fill="#25313c">Order Processing</text>
+<rect x="56" y="1029" width="220" height="46" rx="12" fill="#eaf5f2" stroke="#357c70" stroke-width="1.5"/>
+<text x="166.0" y="1059.0" font-size="20" font-weight="600" text-anchor="middle" fill="#25313c">Order Processing</text>
+<path d="M276 1052 H306" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+<rect x="309" y="1029" width="382" height="46" rx="12" fill="#f2eef9" stroke="#8264a3" stroke-width="1.5"/>
+<text x="500.0" y="1059.0" font-size="20" font-weight="600" text-anchor="middle" fill="#25313c">petstore.notification.requested</text>
+<path d="M691 1052 H721" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+<rect x="724" y="1029" width="220" height="46" rx="12" fill="#eaf5f2" stroke="#357c70" stroke-width="1.5"/>
+<text x="834.0" y="1059.0" font-size="20" font-weight="600" text-anchor="middle" fill="#25313c">Notification Listener</text>
+<text x="36" y="1150" font-size="20" font-weight="600" text-anchor="start" fill="#25313c">Notification delivery · listener and Spring Mail run inside Order Processing</text>
+<rect x="36" y="1174" width="225" height="64" rx="12" fill="#eaf5f2" stroke="#357c70" stroke-width="1.5"/>
+<text x="148.5" y="1213.0" font-size="20" font-weight="600" text-anchor="middle" fill="#25313c">Notification Listener</text>
+<path d="M261 1206 H289" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="292" y="1174" width="150" height="64" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="367.0" y="1213.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">Spring Mail</text>
+<path d="M442 1206 H470" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="473" y="1174" width="108" height="64" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="527.0" y="1213.0" font-size="22" font-weight="600" text-anchor="middle" fill="#25313c">SMTP</text>
+<path d="M581 1206 H627" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="630" y="1166" width="334" height="115" rx="12" fill="#f1f3f5" stroke="#85919c" stroke-width="1.5"/>
+<text x="650" y="1200" font-size="24" font-weight="600" text-anchor="start" fill="#25313c">Mailpit</text>
+<text x="650" y="1231" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">LOCAL DEVELOPMENT ONLY</text>
+<text x="650" y="1258" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">SMTP :1025 · UI :8025</text>
+<text x="36" y="1310" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Listener reloads petstore_orders; production SMTP is configured separately.</text>
+<path d="M36 1348 H88" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="102" y="1355" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Solid = synchronous HTTP</text>
+<path d="M478 1348 H530" fill="none" stroke="#596572" stroke-width="2" stroke-linejoin="round" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+<text x="544" y="1355" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Dashed = asynchronous Artemis event</text>
+<text x="36" y="1387" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">Other solid connectors: ownership, in-process mail steps and SMTP, as labeled.</text>
+<text x="36" y="1421" font-size="20" font-weight="400" text-anchor="start" fill="#25313c">MongoDB / JMS publication is not atomic · no outbox or exactly-once guarantee.</text>
+</g></svg>

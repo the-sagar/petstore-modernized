@@ -4,6 +4,8 @@ This project modernizes Java Pet Store 1.3.1_02 with Java 21, Spring Boot and Mo
 
 ## Architecture and stack
 
+![Java Pet Store architecture: Storefront browser entry, service-owned data, HTTP and Artemis workflows](docs/images/01-current-architecture.svg)
+
 | Service | Port | Responsibilities | MongoDB database |
 | --- | --- | --- | --- |
 | Storefront Service | 8080 | Authentication, Account, catalog, session cart, checkout and customer/Admin/Supplier browser interfaces | `petstore_storefront` |
@@ -12,7 +14,7 @@ This project modernizes Java Pet Store 1.3.1_02 with Java 21, Spring Boot and Mo
 
 The checked-in stack uses **Java 21, Spring Boot 4.1.1, MongoDB 7.0, Artemis 2.57.0-alpine and Mailpit v1.27.8**. The Maven Wrapper supplies Maven. One local MongoDB process hosts the three logical databases as a single-node `rs0` replica set for transactions; this is not production HA.
 
-See the [canonical architecture diagram and legacy-to-MongoDB mapping](docs/06-target-architecture.md#canonical-current-state-architecture).
+See the [canonical architecture and legacy-to-MongoDB mapping](docs/06-target-architecture.md#canonical-current-state-architecture) and [detailed checkout, lifecycle and notification workflows](docs/07-order-processing.md).
 
 Browser application traffic uses **http://localhost:8080**. Services have no cross-service repository access or shared Java domain dependencies. Mailpit and the Artemis console are separate infrastructure interfaces.
 
