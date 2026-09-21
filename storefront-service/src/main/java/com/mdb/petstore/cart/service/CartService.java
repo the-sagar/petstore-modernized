@@ -32,6 +32,7 @@ public class CartService {
             var item = catalogService.getItem(entry.getKey(), locale);
             var product = catalogService.getProduct(item.productId(), locale);
             BigDecimal unitPrice = item.listPrice();
+            requirePrice(unitPrice);
             BigDecimal lineTotal = unitPrice.multiply(BigDecimal.valueOf(entry.getValue()));
             lines.add(new CartLineResponse(item.id(), item.productId(), item.categoryId(), product.name(),
                     item.image(), item.description(), item.attributes(), entry.getValue(), unitPrice, lineTotal));
@@ -41,7 +42,7 @@ public class CartService {
     }
 
     public CartResponse addItem(String itemId, String locale) {
-        catalogService.getItem(itemId, locale);
+        requirePrice(catalogService.getItem(itemId, locale).listPrice());
         shoppingCart.setQuantity(itemId, 1);
         log.info("Cart item added itemId={} quantity=1", itemId);
         return getCart(locale);
@@ -49,7 +50,8 @@ public class CartService {
 
     public CartResponse updateItemQuantity(String itemId, int quantity, String locale) {
         // Validate before any mutation, including removal via a nonpositive quantity.
-        catalogService.getItem(itemId, locale);
+        var item = catalogService.getItem(itemId, locale);
+        if (quantity > 0) requirePrice(item.listPrice());
         shoppingCart.setQuantity(itemId, quantity);
         if (quantity <= 0) {
             log.info("Cart item removed itemId={}", itemId);
@@ -57,6 +59,13 @@ public class CartService {
             log.info("Cart quantity changed itemId={} quantity={}", itemId, quantity);
         }
         return getCart(locale);
+    }
+
+    private static void requirePrice(BigDecimal price) {
+        if (price == null || price.signum() < 0) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.CONFLICT, "Item price unavailable");
+        }
     }
 
     public CartResponse removeItem(String itemId, String locale) {

@@ -1,6 +1,9 @@
 package com.mdb.petstore.identity.service;
 
 import java.time.Instant;
+
+import com.mdb.petstore.web.i18n.SupportedLocales;
+import org.springframework.context.i18n.LocaleContextHolder;
 import java.util.Locale;
 import java.util.Set;
 
@@ -52,6 +55,11 @@ public class RegistrationService {
             throw new IllegalArgumentException("Username already exists: " + normalizedUsername);
         }
 
+        // BCrypt's limit is UTF-8 bytes, not Java characters. Reject before any persistence.
+        if (request.getPassword().getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "Password exceeds supported length");
+        }
         Instant registrationTime = Instant.now();
         log.debug("Building customer aggregate for username={}", normalizedUsername);
 
@@ -80,7 +88,10 @@ public class RegistrationService {
         account.setCreditCard(creditCard);
 
         Profile profile = new Profile();
-        profile.setLanguagePreference(request.getLanguagePreference());
+        profile.setLanguagePreference(SupportedLocales.resolve(
+                request.getLanguagePreference() == null
+                        ? LocaleContextHolder.getLocale().toLanguageTag()
+                        : request.getLanguagePreference()).toLanguageTag());
         profile.setBannerPreference(request.isBannerPreference());
         profile.setLinkPreference(request.isLinkPreference());
 

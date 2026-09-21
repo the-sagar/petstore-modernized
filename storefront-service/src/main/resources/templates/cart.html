@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html lang="en-US" th:lang="${effectiveLocale}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="_csrf" th:content="${_csrf.token}">
     <meta name="_csrf_header" th:content="${_csrf.headerName}">
-    <title>Cart · Petstore</title>
+    <title th:text="#{nav.cart.pageTitle}">Cart · Petstore</title>
     <link rel="stylesheet" href="/css/petstore.css" th:href="@{/css/petstore.css}">
     <script defer src="/assets/storefront.js" th:src="@{/assets/storefront.js}"></script>
 </head>
@@ -13,22 +13,22 @@
 <header th:replace="~{fragments/storefront :: navigation}"></header>
 <main class="storefront">
     <section class="panel">
-        <h1>Your cart</h1>
-<p id="message" class="message" role="status" aria-live="polite">Loading…</p>
-        <div id="empty-cart" hidden><p>Your cart is empty.</p><a href="/shop" data-locale-link>Continue shopping</a></div>
+        <h1 th:text="#{cart.title}">Your cart</h1>
+<p id="message" class="message" role="status" aria-live="polite" th:text="#{common.loading}">Loading…</p>
+        <div id="empty-cart" hidden><p th:text="#{cart.empty}">Your cart is empty.</p><a href="/shop" data-locale-link th:text="#{cart.continue}">Continue shopping</a></div>
         <div id="cart-content" hidden>
             <div class="table-scroll"><table>
-                <caption class="sr-only">Items in your cart</caption>
-                <thead><tr><th scope="col">Item</th><th scope="col">Quantity</th><th scope="col" class="price">Unit price</th><th scope="col" class="price">Line total</th><th scope="col">Actions</th></tr></thead>
+                <caption class="sr-only" th:text="#{cart.caption}">Items in your cart</caption>
+                <thead><tr><th scope="col" th:text="#{cart.item}">Item</th><th scope="col" th:text="#{cart.quantity}">Quantity</th><th scope="col" class="price" th:text="#{cart.unitPrice}">Unit price</th><th scope="col" class="price" th:text="#{cart.lineTotal}">Line total</th><th scope="col" th:text="#{cart.actions}">Actions</th></tr></thead>
                 <tbody id="cart-lines"></tbody>
             </table></div>
-            <p class="hint">Set an exact quantity. Zero or a negative quantity removes an item.</p>
-            <p id="cart-count"></p><p class="total">Subtotal: <span id="subtotal"></span></p>
-            <div class="actions"><a class="button-link" href="/checkout" data-locale-link>Proceed to checkout</a>
-                <a href="/shop" data-locale-link>Continue shopping</a></div>
+            <p class="hint" th:text="#{cart.hint}">Set an exact quantity. Zero or a negative quantity removes an item.</p>
+            <p id="cart-count"></p><p class="total"><span th:text="#{cart.subtotal}">Subtotal:</span> <span id="subtotal"></span></p>
+            <div class="actions"><a class="button-link" href="/checkout" data-locale-link th:text="#{cart.proceed}">Proceed to checkout</a>
+                <a href="/shop" data-locale-link th:text="#{cart.continue}">Continue shopping</a></div>
         </div>
     </section>
-    <noscript><p class="message">Please enable JavaScript to browse and shop.</p></noscript>
+    <noscript><p class="message" th:text="#{common.enableJs}">Please enable JavaScript to browse and shop.</p></noscript>
 </main>
 </body>
 </html>

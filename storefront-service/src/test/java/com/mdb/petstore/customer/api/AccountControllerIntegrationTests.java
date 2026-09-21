@@ -74,7 +74,7 @@ class AccountControllerIntegrationTests {
                 .andExpect(jsonPath("$.street1").value("1 Original Street"))
                 .andExpect(jsonPath("$.cardType").value("VISA"))
                 .andExpect(jsonPath("$.expiryDate").value("12/2030"))
-                .andExpect(jsonPath("$.languagePreference").value("en"))
+                .andExpect(jsonPath("$.languagePreference").value("en-US"))
                 .andExpect(jsonPath("$.password").doesNotExist())
                 .andExpect(jsonPath("$.passwordHash").doesNotExist())
                 .andExpect(jsonPath("$.cardNumber").doesNotExist())
@@ -126,6 +126,7 @@ class AccountControllerIntegrationTests {
         stored.put("linkPreference", profile.isLinkPreference());
         update.remove("cardNumber");
         update.put("last4", "4444");
+        update.put("languagePreference", "en-US"); // Unsupported saved preferences normalize to English.
         assertEquals(update, stored);
     }
 

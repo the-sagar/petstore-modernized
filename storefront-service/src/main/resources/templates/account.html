@@ -1,63 +1,77 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html lang="en-US" th:lang="${effectiveLocale}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="_csrf" th:content="${_csrf.token}">
     <meta name="_csrf_header" th:content="${_csrf.headerName}">
-    <title>Your account · Petstore</title>
+    <title th:text="#{account.title.pageTitle}">Your account · Petstore</title>
     <link rel="stylesheet" th:href="@{/css/petstore.css}" href="/css/petstore.css">
     <script defer src="/assets/storefront.js" th:src="@{/assets/storefront.js}"></script>
 </head>
 <body>
 <header th:replace="~{fragments/storefront :: navigation}"></header>
 <main>
-    <div class="actions account-actions"><button id="logout" class="secondary" type="button">Log out</button></div>
+    <div class="actions account-actions"><button id="logout" class="secondary" type="button" th:text="#{account.logout}">Log out</button></div>
     <section class="panel">
-        <h1>Your account</h1>
-        <p>Update your contact details and preferences.</p>
-        <p class="hint">Fields marked * are required.</p>
-        <p id="message" class="message" role="status" aria-live="polite">Loading your account…</p>
+        <h1 th:text="#{account.title}">Your account</h1>
+        <p th:text="#{account.intro}">Update your contact details and preferences.</p>
+        <p class="hint" th:text="#{form.required}">Fields marked * are required.</p>
+        <p id="message" class="message" role="status" aria-live="polite" th:text="#{account.loading}">Loading your account…</p>
         <form id="account-form" method="post" th:action="@{/api/account}">
             <fieldset id="account-fields" disabled>
-            <fieldset><legend>Contact details</legend>
+            <fieldset><legend th:text="#{form.contact}">Contact details</legend>
                 <div class="grid">
-                    <label>First name * <input name="firstName" type="text" autocomplete="given-name" required></label>
-                    <label>Last name * <input name="lastName" type="text" autocomplete="family-name" required></label>
-                    <label>Email * <input name="email" type="email" autocomplete="email" required></label>
-                    <label>Phone <input name="phone" type="tel" autocomplete="tel"></label>
+                    <label><span th:text="#{form.firstName}">First name *</span> <input name="firstName" type="text" autocomplete="given-name" required></label>
+                    <label><span th:text="#{form.lastName}">Last name *</span> <input name="lastName" type="text" autocomplete="family-name" required></label>
+                    <label><span th:text="#{form.email}">Email *</span> <input name="email" type="email" autocomplete="email" required></label>
+                    <label><span th:text="#{form.phone}">Phone</span> <input name="phone" type="tel" autocomplete="tel"></label>
                 </div>
             </fieldset>
-            <fieldset><legend>Address</legend>
+            <fieldset><legend th:text="#{form.address}">Address</legend>
                 <div class="grid">
-                    <label>Street address * <input name="street1" type="text" autocomplete="address-line1" required></label>
-                    <label>Apartment / unit <input name="street2" type="text" autocomplete="address-line2"></label>
-                    <label>City * <input name="city" type="text" autocomplete="address-level2" required></label>
-                    <label>State / province <input name="stateOrProvince" type="text" autocomplete="address-level1"></label>
-                    <label>Postal code * <input name="postalCode" type="text" autocomplete="postal-code" required></label>
-                    <label>Country * <input name="country" type="text" autocomplete="country-name" required></label>
+                    <label><span th:text="#{form.street}">Street address *</span> <input name="street1" type="text" autocomplete="address-line1" required></label>
+                    <label><span th:text="#{form.unit}">Apartment / unit</span> <input name="street2" type="text" autocomplete="address-line2"></label>
+                    <label><span th:text="#{form.city}">City *</span> <input name="city" type="text" autocomplete="address-level2" required></label>
+                    <label><span th:text="#{form.state}">State / province</span> <input name="stateOrProvince" type="text" autocomplete="address-level1"></label>
+                    <label><span th:text="#{form.postal}">Postal code *</span> <input name="postalCode" type="text" autocomplete="postal-code" required></label>
+                    <label><span th:text="#{form.country}">Country *</span> <input name="country" type="text" autocomplete="country-name" required></label>
                 </div>
             </fieldset>
-            <fieldset><legend>Payment</legend>
-                <p class="hint" id="card-help">Full card numbers are not stored. Enter a card number only to replace the saved card metadata. Leaving it blank keeps the saved last four digits. This demo does not authorize payments.</p>
-                <p id="saved-card"></p>
+            <fieldset><legend th:text="#{form.payment}">Payment</legend>
+                <p class="hint" id="card-help" th:text="#{account.cardHelp}">Full card numbers are not stored. This demo does not authorize payments.</p>
+                <section id="saved-card" class="saved-card" aria-labelledby="saved-card-heading" aria-live="polite">
+                    <h3 id="saved-card-heading" th:text="#{account.savedPayment}">Saved payment method</h3>
+                    <p id="saved-card-empty" hidden th:text="#{js.noCard}">No saved payment method</p>
+                    <div id="saved-card-details" hidden>
+                        <p id="saved-card-type" class="saved-card-type"></p>
+                        <p id="saved-card-number" class="saved-card-number" aria-hidden="true"></p>
+                        <span id="saved-card-accessible" class="sr-only"></span>
+                        <p id="saved-card-expiry" class="saved-card-expiry" hidden></p>
+                    </div>
+                </section>
                 <div class="grid">
-                    <label>Card type <input name="cardType" type="text" autocomplete="cc-type"></label>
-                    <label>Card number <input name="cardNumber" type="password" autocomplete="off" inputmode="numeric" aria-describedby="card-help"></label>
-                    <label>Expiry date <input name="expiryDate" type="text" autocomplete="cc-exp" placeholder="MM/YYYY"></label>
+                    <label><span th:text="#{form.cardType}">Card type</span> <input name="cardType" type="text" autocomplete="cc-type"></label>
+                    <label><span th:text="#{account.replaceCard}">Replace card number (optional)</span> <input name="cardNumber" type="password" autocomplete="off" inputmode="numeric" aria-describedby="card-help card-replacement-help"></label>
+                    <label><span th:text="#{form.expiry}">Expiry date</span> <input name="expiryDate" type="text" autocomplete="cc-exp" placeholder="MM/YYYY" th:placeholder="#{form.expiryFormat}"></label>
+                </div>
+                <p id="card-replacement-help" class="hint" th:text="#{account.keepCard}">Leave blank to keep the saved card.</p>
+            </fieldset>
+            <fieldset><legend th:text="#{form.preferences}">Preferences</legend>
+                <div class="grid">
+                    <label><span th:text="#{form.language}">Preferred language</span> <select name="languagePreference">
+                        <option value="en-US" th:selected="${effectiveLocale == 'en-US'}">English (US)</option>
+                        <option value="ja-JP" th:selected="${effectiveLocale == 'ja-JP'}">日本語</option>
+                        <option value="zh-CN" th:selected="${effectiveLocale == 'zh-CN'}">中文</option>
+                    </select></label>
+                    <label class="check"><input name="bannerPreference" type="checkbox"> <span th:text="#{form.banner}">Show promotional banners</span></label>
+                    <label class="check"><input name="linkPreference" type="checkbox"> <span th:text="#{form.links}">Show preferred links</span></label>
                 </div>
             </fieldset>
-            <fieldset><legend>Preferences</legend>
-                <div class="grid">
-                    <label>Preferred language <input name="languagePreference" type="text" autocomplete="off"></label>
-                    <label class="check"><input name="bannerPreference" type="checkbox"> Show promotional banners</label>
-                    <label class="check"><input name="linkPreference" type="checkbox"> Show preferred links</label>
-                </div>
-            </fieldset>
-                <button type="submit">Save changes</button>
+                <button type="submit" th:text="#{account.save}">Save changes</button>
             </fieldset>
         </form>
-        <noscript><p>Please enable JavaScript to use this demo.</p></noscript>
+        <noscript><p th:text="#{common.enableDemoJs}">Please enable JavaScript to use this demo.</p></noscript>
     </section>
 </main>
 <script th:inline="javascript">
@@ -75,10 +89,19 @@
     }
 
     function populate(account) {
-        document.getElementById('saved-card').textContent = account.last4
-            ? `Saved card: ${account.cardType || 'Card'} ending in ${account.last4}`
-            : 'No saved card metadata.';
-        for (const input of form.querySelectorAll('input:not([type="hidden"])')) {
+        const hasCard = /^[0-9]{4}$/.test(account.last4 ?? '');
+        document.getElementById('saved-card-details').hidden = !hasCard;
+        document.getElementById('saved-card-empty').hidden = hasCard;
+        document.getElementById('saved-card-type').textContent = hasCard
+            ? account.cardType || window.petstoreText('js.card') : '';
+        document.getElementById('saved-card-number').textContent = hasCard
+            ? '•••• •••• •••• ' + account.last4 : '';
+        document.getElementById('saved-card-accessible').textContent = hasCard
+            ? window.petstoreText('js.cardEnding', account.last4) : '';
+        const expiry = document.getElementById('saved-card-expiry');
+        expiry.hidden = !hasCard || !account.expiryDate;
+        expiry.textContent = !expiry.hidden ? window.petstoreText('js.cardExpires', account.expiryDate) : '';
+        for (const input of form.querySelectorAll('input:not([type="hidden"]), select')) {
             if (input.name === 'cardNumber') {
                 input.value = '';
             } else if (input.type === 'checkbox') {
@@ -91,32 +114,32 @@
 
     async function loadAccount() {
         try {
-            const response = await fetch(form.action, {credentials: 'same-origin'});
+            const response = await fetch(window.petstoreUrl(form.action), {credentials: 'same-origin'});
             if (response.status === 401) {
                 window.location.assign(loginUrl);
                 return;
             }
             if (!response.ok) {
-                showMessage('Unable to load your account. Please reload the page or sign in again.', 'error');
+                showMessage(window.petstoreText('js.accountFailed'), 'error');
                 return;
             }
             populate(await response.json());
             fields.disabled = false;
             showMessage('', '');
         } catch {
-            showMessage('Unable to connect. Please reload the page.', 'error');
+            showMessage(window.petstoreText('js.connectReload'), 'error');
         }
     }
 
     form.addEventListener('submit', async event => {
         event.preventDefault();
         const payload = {};
-        for (const input of form.querySelectorAll('input:not([type="hidden"])')) {
+        for (const input of form.querySelectorAll('input:not([type="hidden"]), select')) {
             payload[input.name] = input.type === 'checkbox' ? input.checked : input.value;
         }
         fields.disabled = true;
         try {
-            const response = await fetch(form.action, {
+            const response = await fetch(window.petstoreUrl(form.action), {
                 method: 'PUT', credentials: 'same-origin',
                 headers: {'Content-Type': 'application/json', [csrfHeader]: csrfToken},
                 body: JSON.stringify(payload)
@@ -125,14 +148,14 @@
                 window.location.assign(loginUrl);
             } else if (response.status === 200) {
                 populate(await response.json());
-                showMessage('Your account has been updated.', 'success');
+                showMessage(window.petstoreText('js.accountUpdated'), 'success');
             } else {
-                showMessage(response.status === 400 ? 'Please check the required fields, email address and card number format.'
-                    : response.status === 403 ? 'Please reload the page and try again.'
-                    : 'Unable to save your account. Please try again.', 'error');
+                showMessage(response.status === 400 ? window.petstoreText('js.validation')
+                    : response.status === 403 ? window.petstoreText('js.reload')
+                    : window.petstoreText('js.saveFailed'), 'error');
             }
         } catch {
-            showMessage('Unable to connect. Please try again.', 'error');
+            showMessage(window.petstoreText('js.connectRetry'), 'error');
         } finally {
             fields.disabled = false;
         }
@@ -148,10 +171,10 @@
             if (response.status === 204 || response.status === 401) {
                 window.location.assign(loginUrl);
             } else {
-                showMessage('Unable to log out. Please reload the page and try again.', 'error');
+                showMessage(window.petstoreText('js.logoutFailed'), 'error');
             }
         } catch {
-            showMessage('Unable to connect. Please try again.', 'error');
+            showMessage(window.petstoreText('js.connectRetry'), 'error');
         } finally {
             button.disabled = false;
         }

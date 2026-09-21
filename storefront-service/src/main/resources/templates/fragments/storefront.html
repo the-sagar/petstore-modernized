@@ -3,10 +3,10 @@
 <body>
 <header th:fragment="navigation" class="site-header">
     <a class="brand" href="/shop" th:href="${isSupplier} ? @{/supplier/inventory} : @{/shop}" data-locale-link>Petstore</a>
-    <nav aria-label="Main navigation">
-        <a th:unless="${isSupplier}" href="/shop" th:href="@{/shop}" data-locale-link>Shop</a>
-        <a th:unless="${isSupplier}" href="/cart" th:href="@{/cart}" data-locale-link>Cart</a>
-        <a th:unless="${isAdmin or isSupplier}" href="/account" th:href="@{/account}" data-locale-link>Account</a>
+    <nav aria-label="Main navigation" th:aria-label="#{nav.main}">
+        <a th:unless="${isSupplier}" href="/shop" th:href="@{/shop}" data-locale-link th:text="#{nav.shop}">Shop</a>
+        <a th:unless="${isSupplier}" href="/cart" th:href="@{/cart}" data-locale-link th:text="#{nav.cart}">Cart</a>
+        <a th:unless="${isAdmin or isSupplier}" href="/account" th:href="@{/account}" data-locale-link th:text="#{nav.account}">Account</a>
         <a th:if="${isAdmin}" id="admin-orders-link" th:href="@{/admin/orders}" href="/admin/orders">Orders</a>
         <a th:if="${isSupplier}" id="supplier-inventory-link" th:href="@{/supplier/inventory}">Inventory</a>
         <a th:if="${isSupplier}" id="supplier-orders-link" th:href="@{/supplier/orders}">Fulfilments</a>
@@ -16,13 +16,71 @@
         <span th:if="${isAdmin or isSupplier}" id="admin-nav-message" role="status"></span>
     </nav>
     <script th:if="${isAdmin or isSupplier}" defer th:src="@{/assets/admin-navigation.js}" src="/assets/admin-navigation.js"></script>
-    <label th:unless="${isSupplier}" class="locale-control">Catalog locale
-        <select id="locale-select" aria-label="Catalog locale">
+    <label th:unless="${operationalPage}" class="locale-control"><span th:text="#{nav.locale}">Catalog locale</span>
+        <select id="locale-select" aria-label="Catalog locale" th:aria-label="#{nav.locale}">
             <option value="en-US">English (US)</option>
             <option value="ja-JP">日本語</option>
             <option value="zh-CN">中文</option>
         </select>
     </label>
+    <script th:inline="javascript">
+        window.petstoreLocale = /*[[${effectiveLocale}]]*/ 'en-US';
+        window.petstoreMessages = {
+            "js.fieldInvalid": /*[[#{js.fieldInvalid}]]*/ "",
+            "js.signin": /*[[#{js.signin}]]*/ "",
+            "js.invalid": /*[[#{js.invalid}]]*/ "",
+            "js.session": /*[[#{js.session}]]*/ "",
+            "js.notFound": /*[[#{js.notFound}]]*/ "",
+            "js.checkoutMissing": /*[[#{js.checkoutMissing}]]*/ "",
+            "js.unavailable": /*[[#{js.unavailable}]]*/ "",
+            "js.failed": /*[[#{js.failed}]]*/ "",
+            "js.unconfirmed": /*[[#{js.unconfirmed}]]*/ "",
+            "js.connection": /*[[#{js.connection}]]*/ "",
+            "js.response": /*[[#{js.response}]]*/ "",
+            "js.noProducts": /*[[#{js.noProducts}]]*/ "",
+            "js.noResults": /*[[#{js.noResults}]]*/ "",
+            "js.outOfRange": /*[[#{js.outOfRange}]]*/ "",
+            "js.page": /*[[#{js.page}]]*/ "",
+            "js.searching": /*[[#{js.searching}]]*/ "",
+            "js.matching": /*[[#{js.matching}]]*/ "",
+            "js.browse": /*[[#{js.browse}]]*/ "",
+            "js.products": /*[[#{js.products}]]*/ "",
+            "js.items": /*[[#{js.items}]]*/ "",
+            "js.noItems": /*[[#{js.noItems}]]*/ "",
+            "js.add": /*[[#{js.add}]]*/ "",
+            "js.addLabel": /*[[#{js.addLabel}]]*/ "",
+            "js.added": /*[[#{js.added}]]*/ "",
+            "js.cartUpdated": /*[[#{js.cartUpdated}]]*/ "",
+            "js.distinct": /*[[#{js.distinct}]]*/ "",
+            "js.quantityLabel": /*[[#{js.quantityLabel}]]*/ "",
+            "js.updateQuantity": /*[[#{js.updateQuantity}]]*/ "",
+            "js.remove": /*[[#{js.remove}]]*/ "",
+            "js.placing": /*[[#{js.placing}]]*/ "",
+            "js.invalidLogin": /*[[#{js.invalidLogin}]]*/ "",
+            "js.loginFailed": /*[[#{js.loginFailed}]]*/ "",
+            "js.connectRetry": /*[[#{js.connectRetry}]]*/ "",
+            "js.registered": /*[[#{js.registered}]]*/ "",
+            "js.usernameExists": /*[[#{js.usernameExists}]]*/ "",
+            "js.validation": /*[[#{js.validation}]]*/ "",
+            "js.registerFailed": /*[[#{js.registerFailed}]]*/ "",
+            "js.cardEnding": /*[[#{js.cardEnding}]]*/ "",
+            "js.cardExpires": /*[[#{js.cardExpires}]]*/ "",
+            "js.card": /*[[#{js.card}]]*/ "",
+            "js.noCard": /*[[#{js.noCard}]]*/ "",
+            "js.accountFailed": /*[[#{js.accountFailed}]]*/ "",
+            "js.connectReload": /*[[#{js.connectReload}]]*/ "",
+            "js.accountUpdated": /*[[#{js.accountUpdated}]]*/ "",
+            "js.reload": /*[[#{js.reload}]]*/ "",
+            "js.saveFailed": /*[[#{js.saveFailed}]]*/ "",
+            "js.logoutFailed": /*[[#{js.logoutFailed}]]*/ ""
+        };
+        window.petstoreText = (key, ...args) => window.petstoreMessages[key].replace(/\{(\d+)\}/g, (_, i) => args[Number(i)] ?? '');
+        window.petstoreUrl = path => {
+            const address = new URL(path, window.location.origin);
+            address.searchParams.set('locale', window.petstoreLocale);
+            return address.pathname + address.search;
+        };
+    </script>
 </header>
 </body>
 </html>

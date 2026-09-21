@@ -25,10 +25,10 @@ Start here on a clean Windows or macOS machine. **No IDE is required.** Choose [
 | mongosh | Executed inside the Mongo container with `docker exec`. |
 | ActiveMQ Artemis | Runs in Docker. |
 | Mailpit | Runs in Docker as a local SMTP catcher. |
-| Spring Boot | Resolved by Maven as project dependencies; no standalone installer. |
-| Node.js / npm | Not used by this project. |
+| Spring Boot | Resolved by Maven through project dependencies; no standalone installer. |
+| Node.js / npm | Not required to build or run the application. Optional JavaScript presentation tests use Node.js; no npm dependencies are needed. |
 
-Versions below were checked against `main` at `21592ab`, root/module POMs, and Compose during this documentation update:
+Versions are taken from the checked-in POM/Compose configuration:
 
 | Technology | Repository configuration |
 | --- | --- |
@@ -40,7 +40,7 @@ Versions below were checked against `main` at `21592ab`, root/module POMs, and C
 | Mailpit | `axllent/mailpit:v1.27.8` |
 | Spring Boot applications | Storefront, Order Processing, Supplier; three separate host Java processes |
 
-This documentation update was prepared on macOS. Installer instructions were checked against official sources and project commands against the repository. No new Maven test run or Windows execution is claimed by this documentation-only update. **Windows instructions require independent execution on a Windows machine.**
+This documentation update was prepared on macOS. Installer instructions were checked against official sources and project commands against the repository. Automated build results do not certify a fresh-machine installation. Independent Windows and macOS testers have supplied setup feedback; this documentation pass did not execute a fresh-machine installation. **Windows instructions require independent execution on a Windows machine.**
 
 ## Windows 10/11 with PowerShell
 
@@ -106,7 +106,7 @@ If `JAVA_HOME` or Java selection is wrong:
 2. Create/edit `JAVA_HOME` in the appropriate System or User scope. System changes may require administrator access.
 3. Browse to your installed **JDK root** in File Explorer. Use that directory as the value, without quotes and **without `\bin`**. Do not use a JRE directory.
 4. Edit `Path` in the same scope. Add `%JAVA_HOME%\bin`; remove or move conflicting old Java entries as appropriate. Check both User and System variables if Java selection still disagrees.
-5. Confirm all dialogs. Close and reopen PowerShell so it inherits the updated environment.
+5. Confirm all dialogs. Reopen PowerShell to load the updated environment.
 6. Repeat the four checks above.
 
 For the **current PowerShell session only**, replace the clearly marked placeholder with your actual installation directory:
@@ -228,16 +228,30 @@ Resolve startup/port errors before continuing. Do not install these services nat
 
 ### 10. Initialize MongoDB replica set rs0
 
-This step is required before building or launching the application. First check:
+This step is required before building or launching the application. First verify Mongo itself:
 
 ```powershell
 docker exec petstore-mongodb mongosh --quiet --eval "db.adminCommand({ping:1})"
+```
+
+Expected: `ok: 1`. This proves Mongo is running, but **does not prove the replica set is configured**. Then check:
+
+```powershell
 docker exec petstore-mongodb mongosh --quiet --eval "rs.status().ok"
 ```
 
-Ping should include `ok: 1`. **If replica status returns `1`, DO NOT initialize again.** Proceed to the writable-primary check below.
+There are two expected outcomes:
 
-**Only for a fresh/uninitialized Mongo volume** (for example, `NotYetInitialized` / no replica-set configuration), run this PowerShell-safe command as one line:
+- **Case A — already initialized:** result `1` means `rs0` is configured. **DO NOT run `rs.initiate()` again.** Continue to the writable-primary check below.
+- **Case B — fresh installation:** `MongoServerError: no replset config has been received` (or an equivalent no-configuration error such as `NotYetInitialized`) means Mongo is running but the fresh volume has no `rs0` configuration yet.
+
+> **IMPORTANT — FIRST RUN ONLY**
+>
+> **This error is normal on the first run of a fresh MongoDB volume. It does not mean MongoDB failed to start.** Initialize `rs0` once using the command below, wait for election, then retry the status checks. Do not repeatedly run `rs.initiate()`.
+>
+> Normal `docker compose down` preserves the Mongo volume and its `rs0` configuration. **Destructive `docker compose down -v` removes the volume**, so initialization is required again after the next startup.
+
+Only for Case B, run this PowerShell-safe command as one line:
 
 ```powershell
 docker exec petstore-mongodb mongosh --eval "rs.initiate({_id:'rs0',members:[{_id:0,host:'localhost:27017'}]})"
@@ -245,14 +259,14 @@ docker exec petstore-mongodb mongosh --eval "rs.initiate({_id:'rs0',members:[{_i
 
 Keep the outer double quotes and inner JavaScript single quotes exactly as shown. This is the existing Windows guide's quoting form, chosen to avoid embedded-double-quote differences between Windows PowerShell 5.1 and newer PowerShell. Do not replace it with the Bash quoting form.
 
-Wait a few seconds for election, then check:
+Successful initiation commonly includes `ok: 1`; the rest of the response may vary. Wait about **5–10 seconds** for the single MongoDB member to become **PRIMARY**, then check:
 
 ```powershell
 docker exec petstore-mongodb mongosh --quiet --eval "rs.status().ok"
 docker exec petstore-mongodb mongosh --quiet --eval "db.hello().isWritablePrimary"
 ```
 
-Expected output: **`1`**, then **`true`**. If primary is initially false, wait and recheck; inspect Mongo logs if it stays false. Do not build until writable.
+Expected output: **`1`**, then **`true`**. If primary is initially false, wait and recheck; inspect Mongo logs if it stays false. Continue to Maven build/startup only after **both checks pass**.
 
 Parts of the application use Mongo transactions, including registration and Supplier allocation/progress updates. Standalone Mongo is insufficient. This is a **one-node LOCAL DEVELOPMENT replica set**, not production high availability. The advertised `localhost:27017` is correct because Java applications run on the host.
 
@@ -272,7 +286,7 @@ From the repository root, with Mongo's `rs0` writable:
 
 Allow time for first-use dependency downloads. Expected final output is **BUILD SUCCESS**, with Storefront, Order Processing and Supplier all successful and no failing tests. Tests use isolated Mongo databases and mock/isolate messaging, SMTP and downstream HTTP boundaries where applicable; automated tests do not require an IDE or Mailpit delivery.
 
-Do not use an old documentation test count as the pass criterion. This documentation-only update did not execute a new Maven run; earlier macOS verification is not Windows verification. Record your actual result, test totals and commit ID (`git rev-parse HEAD`) for the external exercise.
+Do not use an old documentation test count as the pass criterion. The current automated verification result is recorded in the [README](../README.md#testing); a macOS build does not establish Windows compatibility. Record your actual result, test totals and commit ID (`git rev-parse HEAD`) for the external exercise.
 
 ### 13. Run all three applications without IntelliJ
 
@@ -313,7 +327,9 @@ Wait for all three application startup messages and their corresponding web-serv
 
 Startup should finish without exceptions. Open **http://localhost:8080**; it redirects to `/shop`. Browser application traffic uses **Storefront only**. A **404 at `http://localhost:8081/` or `http://localhost:8082/` is expected**: these are backend APIs, not browser homepages. There is no configured Actuator `/health` endpoint to check. Use startup logs plus the functional exercises.
 
-Stop an application with **Ctrl+C in its terminal**. Leave all three running for verification. Environment variables set in one PowerShell window do not automatically reach another already-open window.
+Each `.\mvnw.cmd -pl <service> spring-boot:run` command starts Spring Boot as a **foreground process**. Its PowerShell window/tab stays occupied and must remain open while you use that service. Leave all three running for verification. When finished, **press Ctrl+C once in each PowerShell window/tab**: this sends an interrupt so that one Java/Spring Boot process shuts down cleanly. Closing a terminal forcibly may also terminate its process, but Ctrl+C is the recommended clean shutdown method.
+
+Ctrl+C in the service windows stops **Storefront, Order Processing and Supplier**, one at a time. It does not stop Docker infrastructure; `docker compose down` stops **MongoDB, Artemis and Mailpit**. Environment variables set in one PowerShell window do not automatically reach another already-open window.
 
 <a id="environment-and-demo-accounts"></a>
 
@@ -426,8 +442,8 @@ docker compose logs mailpit
 | Docker Desktop stuck starting | Check pending restart, virtualization, WSL updates, free RAM and disk. Quit Docker; if needed run `wsl --shutdown` (stops all WSL sessions), then restart Docker. Use Docker's Troubleshoot diagnostics; do not factory-reset as a first step. |
 | Corporate proxy blocks Docker pulls | Configure Docker Desktop's proxy using organizational guidance; verify `docker compose pull`. Maven/Git may need their own approved proxy settings. |
 | Port already in use | Check all ports below. Stop the known conflicting process or duplicate Petstore terminal; do not randomly change dependent service URLs or kill unknown processes. |
-| Mongo ping works but replica set is missing | Ping alone is insufficient. Initialize `rs0` only if uninitialized and wait for `isWritablePrimary` to become true. |
-| `Transaction numbers are only allowed...` | The app connected to standalone Mongo or the wrong URI. Use Compose Mongo with initialized `rs0` and the default `?replicaSet=rs0` service URIs. Check for an unintended `SPRING_MONGODB_URI` override. |
+| `MongoServerError: no replset config has been received` | Normal on a fresh volume: Mongo is running but has no `rs0` configuration. Run the one-time PowerShell `rs.initiate` command above, wait 5–10 seconds for election, then verify `rs.status().ok` returns `1` and `db.hello().isWritablePrimary` returns `true`. |
+| `Transaction numbers are only allowed on a replica set member or mongos` | Unlike the normal first-run status error, this usually means the application reached Mongo before the replica set was correctly initialized/usable, or connected to standalone Mongo/the wrong URI. Use Compose Mongo with initialized `rs0` and the default `?replicaSet=rs0` service URIs. Check for an unintended `SPRING_MONGODB_URI` override. |
 | Artemis authentication failure | Check `ARTEMIS_USER`/`ARTEMIS_PASSWORD` in the Compose shell and both Order Processing/Supplier terminals. Existing broker-volume credentials may differ from new environment values. Inspect Artemis logs. |
 | Mailpit UI unavailable | Check `docker compose ps`, `docker compose logs mailpit`, and port 8025. SMTP port 1025 is not an HTTP page. |
 | Orders process but emails are missing | In Order Processing's terminal set `NOTIFICATION_ENABLED=true` and restart that service. Check `SMTP_HOST=localhost`, `SMTP_PORT=1025`, Mailpit/broker readiness, and logs for `Notification requested`, `Notification email sent` or `Notification email delivery failed`. Test with a new order: enabling email does not recreate requests skipped while disabled. |
@@ -449,7 +465,12 @@ Use `Get-Process -Id <OwningProcess>` with an actual PID from that output to ide
 
 ### 18. Stop, restart and reset
 
-Normal shutdown: press **Ctrl+C** in each Spring Boot terminal. Then, from the repository root:
+Normal shutdown:
+
+1. Stop Storefront with **Ctrl+C** in its PowerShell window/tab.
+2. Stop Order Processing with **Ctrl+C** in its PowerShell window/tab.
+3. Stop Supplier with **Ctrl+C** in its PowerShell window/tab.
+4. From the repository root, stop MongoDB, Artemis and Mailpit:
 
 ```powershell
 docker compose down
@@ -488,7 +509,7 @@ This path starts with a clean Mac and uses **Terminal, without an IDE**. Java ru
 | IntelliJ IDEA or another IDE | Optional. |
 | Homebrew | Optional; none of the primary steps require it. |
 
-**Do not install separately:** Maven comes through `./mvnw`; MongoDB runs in Docker; `mongosh` runs inside the Mongo container; Artemis and Mailpit run in Docker; Spring Boot is a Maven dependency; Node.js/npm are unused.
+**Do not install separately:** Maven comes through `./mvnw`; MongoDB runs in Docker; `mongosh` runs inside the Mongo container; Artemis and Mailpit run in Docker; Spring Boot is a Maven dependency; Node.js/npm are not required to build or run the application (optional presentation tests use Node.js without npm dependencies).
 
 The checked-in stack is **Java 21, Spring Boot 4.1.1, MongoDB `mongo:7.0` with single-node replica set `rs0`, Artemis `apache/artemis:2.57.0-alpine`, and Mailpit `axllent/mailpit:v1.27.8`**. Storefront, Order Processing and Supplier are three Spring Boot applications. The wrapper downloads Maven 3.9.16.
 
@@ -636,28 +657,44 @@ docker compose logs mailpit
 
 ### 9. Initialize MongoDB replica set rs0
 
-First verify connectivity, then check whether initialization already exists:
+First verify Mongo itself:
 
 ```bash
 docker exec petstore-mongodb mongosh --quiet --eval 'db.adminCommand({ping:1})'
+```
+
+Expected: `ok: 1`. This proves Mongo is running, but **does not prove the replica set is configured**. Then check:
+
+```bash
 docker exec petstore-mongodb mongosh --quiet --eval 'rs.status().ok'
 ```
 
-The ping should include `ok: 1`. **If `rs.status().ok` returns `1`, do not initialize again.** If it reports that the replica set has not been initialized, and this is a fresh/uninitialized volume, run:
+There are two expected outcomes:
+
+- **Case A — already initialized:** result `1` means `rs0` is configured. **DO NOT run `rs.initiate()` again.** Continue to the writable-primary check below.
+- **Case B — fresh installation:** `MongoServerError: no replset config has been received` (or an equivalent no-configuration error such as `NotYetInitialized`) means Mongo is running but the fresh volume has no `rs0` configuration yet.
+
+> **IMPORTANT — FIRST RUN ONLY**
+>
+> **This error is normal on the first run of a fresh MongoDB volume. It does not mean MongoDB failed to start.** Initialize `rs0` once using the command below, wait for election, then retry the status checks. Do not repeatedly run `rs.initiate()`.
+>
+> Normal `docker compose down` preserves the Mongo volume and its `rs0` configuration. **Destructive `docker compose down -v` removes the volume**, so initialization is required again after the next startup.
+
+Only for Case B, run:
 
 ```bash
 docker exec petstore-mongodb mongosh --eval \
 'rs.initiate({_id:"rs0",members:[{_id:0,host:"localhost:27017"}]})'
 ```
 
-A connection failure is not evidence that initialization is needed: first check the running container and its logs. After initialization, wait several seconds for primary election, then verify:
+Successful initiation commonly includes `ok: 1`; the rest of the response may vary. A connection failure is not evidence that initialization is needed: first check the running container and its logs. Wait about **5–10 seconds** for the single MongoDB member to become **PRIMARY**, then verify:
 
 ```bash
 docker exec petstore-mongodb mongosh --quiet --eval 'rs.status().ok'
 docker exec petstore-mongodb mongosh --quiet --eval 'db.hello().isWritablePrimary'
 ```
 
-Expected results are **`1`** and **`true`**, respectively. Retry these read-only checks if election is still in progress. Continue only when both pass.
+Expected results are **`1`** and **`true`**, respectively. Retry these read-only checks if election is still in progress. Continue to Maven build/startup only after **both checks pass**.
 
 Application Mongo transactions require the replica set. `rs0` here is a **one-node local development** configuration, not production high availability. Existing volumes retain initialization across normal restarts.
 
@@ -675,7 +712,7 @@ With Mongo `rs0` writable, run:
 ./mvnw clean verify
 ```
 
-Expect the final result **`BUILD SUCCESS`** with no failing tests. Use the test counts printed by this execution as evidence for your checked-out commit. This documentation update does not claim a new Maven test execution or a clean-machine installation test. Automated mail tests use mocks and do not require Mailpit.
+Expect the final result **`BUILD SUCCESS`** with no failing tests. Use the test counts printed by this execution as evidence for your checked-out commit. See the [README](../README.md#testing) for the current automated result; it is not a clean-machine installation test. Automated mail tests use mocks and do not require Mailpit.
 
 If duplicate classes or numbered copies of build artifacts appear under `target`, investigate iCloud/file synchronization; this is an environment problem, not normal project output. See troubleshooting below before rebuilding.
 
@@ -712,7 +749,9 @@ Wait for successful startup in each terminal:
 
 Check for the corresponding `Started ...Application` message and absence of startup errors. Open **http://localhost:8080** for the application. Backend roots **http://localhost:8081/** and **http://localhost:8082/** may return **404**, because they are API services, not browser homepages; a root 404 alone is not a health failure. Use startup logs and the linked functional checks to verify service interaction; there is no documented actuator health endpoint.
 
-Stop each Java application with **Ctrl+C** in its own terminal.
+Each `./mvnw -pl <service> spring-boot:run` command starts Spring Boot as a **foreground process**. Its Terminal window/tab stays occupied and must remain open while you use that service. When finished, **press Ctrl+C once in each Terminal window/tab**: this sends an interrupt so that one Java/Spring Boot process shuts down cleanly. Closing a terminal forcibly may also terminate its process, but Ctrl+C is the recommended clean shutdown method.
+
+Ctrl+C in the service terminals stops **Storefront, Order Processing and Supplier**, one at a time. It does not stop Docker infrastructure; `docker compose down` stops **MongoDB, Artemis and Mailpit**.
 
 ### 13. Local accounts and environment overrides
 
@@ -795,7 +834,8 @@ Continue with [functional verification](09-functional-verification.md). **Indepe
 | Docker stuck starting or permissions denied | Check Docker Desktop diagnostics, macOS security/permission prompts, supported macOS version and free resources. Ask IT about managed-device restrictions. |
 | Pulls fail on corporate network | Review Docker Desktop proxy configuration and permitted registry/network access with IT. |
 | Port already in use | Check all required ports: **27017, 61616, 8161, 1025, 8025, 8080, 8081, 8082**. Identify the process before stopping anything; avoid launching duplicate services in IDE and Terminal. |
-| Replica set not initialized / “Transaction numbers are only allowed...” | Follow the rs0 checks above. Initialize only an uninitialized volume and wait until it is writable. |
+| `MongoServerError: no replset config has been received` | Normal on a fresh volume: Mongo is running but has no `rs0` configuration. Run the one-time macOS `rs.initiate` command above, wait 5–10 seconds for election, then verify `rs.status().ok` returns `1` and `db.hello().isWritablePrimary` returns `true`. |
+| `Transaction numbers are only allowed on a replica set member or mongos` | Unlike the normal first-run status error, this usually means the application reached Mongo before the replica set was correctly initialized/usable. Verify both rs0 checks above before building/starting the app; also check that it connects to the intended Compose Mongo instance. |
 | Artemis authentication fails | Match `ARTEMIS_USER` / `ARTEMIS_PASSWORD` between broker configuration and both consuming services. Existing broker volume credentials may differ from newly supplied values; do not delete volumes as a routine fix. |
 | Mailpit UI unavailable | Check Mailpit container/logs and port 8025; SMTP 1025 is not a browser UI. |
 | Emails absent | Check Order Processing's effective `NOTIFICATION_ENABLED` (default true), SMTP settings and logs; ensure Mailpit and Artemis run and the order actually transitioned. Restart after shell changes. Best-effort delivery does not guarantee replay of failed emails. |
@@ -820,7 +860,12 @@ Substitute another port in `lsof` as needed. Use macOS/Zsh syntax here: Windows 
 
 ### 17. Stop, restart and reset
 
-For normal shutdown, press **Ctrl+C in each Spring Boot terminal**, then stop infrastructure:
+Normal shutdown:
+
+1. Stop Storefront with **Ctrl+C** in its Terminal window/tab.
+2. Stop Order Processing with **Ctrl+C** in its Terminal window/tab.
+3. Stop Supplier with **Ctrl+C** in its Terminal window/tab.
+4. From the repository root, stop MongoDB, Artemis and Mailpit:
 
 ```bash
 docker compose down

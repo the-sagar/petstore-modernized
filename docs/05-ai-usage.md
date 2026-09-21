@@ -1,49 +1,36 @@
 # AI assistance and human decisions
 
-## Role and accountability
+## Scope and responsibility
 
-AI (including Codex in IntelliJ) assisted investigation, bounded implementation prompts, scaffolding, DTO/mapping code, tests, troubleshooting, and documentation. The developer set scope, service ownership, parity requirements, and security constraints. AI-generated code was treated as a proposal to inspect and verify, not an architectural authority.
+AI assisted source investigation, bounded implementation, scaffolding, tests, troubleshooting and documentation. The developer established service boundaries, MongoDB aggregate ownership, transport choices, payment-data constraints, failure semantics and parity requirements. Generated changes were subject to those constraints and automated verification; architecture and acceptance remained developer decisions.
 
-This repository is AI-assisted implementation, not a claim that every line was written manually.
+## Areas of assistance
 
-## Concrete decisions and checks
+| Area | AI assistance | Developer-directed decision or evidence |
+| --- | --- | --- |
+| Legacy investigation | Temporary instrumentation, source tracing and database-query assistance | The original application was reproduced and exercised; runtime findings were checked against source and Cloudscape data |
+| Account migration | DTOs, explicit mappings, registration/account code and rollback tests | Separate User identity and embedded Customer aggregate; transactional registration and BCrypt |
+| Architecture | Maven service scaffolding, local contracts, HTTP clients and JMS handlers | Three service-owned databases, no cross-service repositories or shared domain module; synchronous checkout acceptance followed by asynchronous workflow |
+| Catalog | XML extraction, embedded detail models, MongoDB aggregation/paging and presentation tests | Preserve localized source data and independent fallback; intentionally retain modern Product/ALL-token search rather than legacy Item/ANY semantics |
+| Customer presentation | Message bundles, locale-aware pages, accessible catalog fallbacks, masked payment summary and Item Detail | Three customer locales and the existing UI stack; operational consoles remain English |
+| Payment treatment | Display-metadata mapping, migration and raw-BSON assertions | Full PAN is transient; only type/last4 reach Orders; no authorization, tokenization or PCI-compliance claim |
+| Order workflow | Atomic decisions, Supplier allocation, fulfilment event handling and tests | Preserve whole-line allocation, partial shipment, replenishment and duplicate-event guards without claiming exactly-once processing |
+| Notifications/statistics | Spring Mail integration, localized content, MongoDB category aggregation and tests | Customer email stays in Order Processing; non-blocking SMTP; statistics include every workflow status for legacy parity |
+| Reliability | Failure/concurrency tests and boundary review | Cart clears only after a valid downstream 201; no distributed rollback, outbox or request-level idempotency is implied |
+| Documentation | Source/configuration comparisons, grammar, link checks and setup clarifications | Local workspace is authoritative; independent testers supplied Windows/macOS setup and role-transition feedback |
 
-| Area | AI contribution | Human decision / verification |
-|---|---|---|
-| Legacy diagnostics | Generated Java 1.4-compatible, dependency-free temporary instrumentation; helped correlate traces | Developer compiled/deployed the original application, exercised it, and checked logs/source before accepting findings |
-| Legacy persistence | Assisted Cloudscape query construction and interpretation | Developer executed queries and verified entity relationships and the card type/expiry mapping defect |
-| Migration sequence | Helped formulate bounded work and scaffold each slice | Developer explicitly limited each checkpoint and required tests before expanding scope |
-| Service architecture | Created Maven modules and bootstraps | Developer established three independently deployable boundaries: Storefront, Order Processing, Supplier—not a service per entity |
-| Order ownership | Implemented local DTOs, RestClient, and order API | Developer rejected direct Storefront ownership/repository access for orders; the boundary is HTTP with separate databases |
-| Catalog source | Extracted and parsed catalog XML; built seed validation | Developer required real legacy data and targeted source verification, not invented demo records; user/customer/payment sections were excluded |
-| Locale-specific prices | Refactored model and tests | Developer rechecked `Populate-UTF8.xml` and `CatalogDAOSQL.xml`, correcting the earlier model so ListPrice/UnitCost belong to ItemDetails, not Item |
-| Cart parity | Implemented session state and tests | Developer supplied verified semantics: add resets to 1, positive updates set exact quantities, nonpositive removes |
-| Async boundary | Implemented publishers, listeners and bounded tests | Developer chose to preserve meaningful JMS-style order workflow with Artemis + Spring JMS, introduced after synchronous checkout was verified |
-| Payment correction | Implemented display-only order payment DTOs and rejection tests | Developer required that full card data never cross to Order Processing; only card type and last4 are permitted |
-| Checkout reliability | Implemented response validation and failure tests | Developer required cart clearing only after a successful, valid order-creation acknowledgement |
-| Customer UI | Built Thymeleaf/vanilla JS pages and page tests | Developer constrained the UI to existing APIs, CSRF protection, and no framework/business-logic duplication |
+## Verification and limits
 
-A subsequent bounded hardening step removed raw Storefront card persistence: only display metadata remains, with an idempotent legacy-data migration and raw-BSON assertions. This does not implement tokenization, payment authorization or establish PCI compliance.
+The recorded legacy investigation includes runtime exercises for account, cart, approval, replenishment, completion and optional email. Source inspection establishes catalog counts, profile concepts and legacy search/statistics behavior. These evidence types are distinguished from newly executed automated tests; source inspection does not establish that every browser scenario was manually repeated.
 
-## Verification rather than blind acceptance
+Automated tests cover transaction rollback, identity ownership, roles/CSRF, locale fallback, catalog paging/search, customer pages, payment redaction/migration, HTTP failure handling, order decisions, inventory concurrency, shipment passes, notifications and statistics. JavaScript presentation tests use a lightweight DOM stand-in rather than a full browser framework. See the [current verification result](../README.md#testing) and the [external functional-verification guide](09-functional-verification.md).
 
-- Legacy account, cart, approval, supplier replenishment, and completion behavior was manually exercised in the reproduced legacy runtime. Instrumentation findings were checked against source and database evidence.
-- Targeted inspection established catalog counts and EST-15's missing Japanese details. Seed validation and tests preserve that irregularity.
-- Automated tests cover Mongo rollback, ownership, session isolation, CSRF, current-price snapshots, redacted outbound JSON, order persistence, and HTTP failure handling.
-- Storefront checkout tests use a mock HTTP server facility, without a Java dependency on Order Processing. API contracts remain separately owned.
-- Page tests exercise real Thymeleaf CSRF tokens and anonymous-cart retention through login. Browser checks and real Artemis flows verified approval/denial and partial fulfilment followed by replenishment, in addition to earlier mocked-API smoke checks.
-- Test feedback exposed assumptions about redirects and Thymeleaf-escaped JavaScript URLs. Assertions were checked against actual responses rather than weakening security to make tests pass.
-- A duplicate generated-file/build-output issue was diagnosed as an artifact problem and cleaned instead of committing duplicate files or changing business code to mask it.
-- Focused suites and root Maven verification cover concurrency, role isolation, payment migration and failure cases. Record the actual test summary for the checked-out commit; this documentation update does not claim a new test execution.
+Generated duplicate artifacts have recurred in the synced workspace. When necessary, verification uses a source-identical temporary copy outside that folder; tests are not weakened and duplicate source files are not introduced to bypass the issue. A successful automated run does not certify a fresh installation, production readiness or native-speaker/browser review of every translated page.
 
-## Explicit engineering tradeoffs
+## Deliberate trade-offs
 
-Human scope decisions kept three service-owned databases and no cross-service Java domain dependencies. BCrypt uses Spring Security, and Mongo collections follow aggregates rather than reproducing every relational table.
+MongoDB aggregate design follows ownership and access patterns rather than a collection per relational table. Embedded relationships reduce local orchestration, while catalog search still uses a justified cross-collection `$lookup`. This is not a claim that MongoDB eliminates every join or that ordinary indexes accelerate arbitrary substring search.
 
-Mongo commits and JMS sends are separate. The developer explicitly accepted a bounded demo without a transactional outbox while requiring the publication gaps to be reported. Persisted APPROVED orders or Supplier shipments can require replay/reconciliation after a send failure. Duplicate-safe consumers do not make publication exactly-once. Checkout similarly preserves the cart after failure without claiming that an already accepted remote order was rolled back.
+The developer accepted bounded local functionality while retaining explicit production gaps: MongoDB/JMS publication is not atomic, email is best-effort, checkout retries lack a request-level idempotency key, and backend authentication/TLS, secrets management, HA, monitoring and recovery need further work. Duplicate-safe consumers do not make either publication or email exactly-once.
 
-Payment hardening was a human security correction: first restrict the inter-service contract to card type/last4, then remove raw Storefront persistence with an idempotent migration and raw-BSON tests. No gateway, tokenization or compliance claim was invented.
-
-## Architecture rationale and review
-
-A developer reviewing the system should be able to trace a request through controller, service, repository/client, and tests; explain which behavior came from verified legacy evidence and which is a modernization decision; and identify unfinished work. AI accelerated execution, while the developer retained responsibility for architecture, review, and acceptance.
+Payment-data restrictions and search semantics are explicit engineering choices, not incidental generated behavior. Favorite Category/My List, related banners and remember-username behavior remain deferred; persisted flags alone do not establish those features. Readers can trace implemented behavior through its API, service, persistence boundary and tests, then compare it with the [parity record](04-functional-parity.md).

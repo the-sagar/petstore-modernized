@@ -32,7 +32,34 @@ class NotificationTests {
     private final JavaMailSender mail = mock(JavaMailSender.class);
     private final JsonMapper mapper = new JsonMapper();
     private final NotificationListener listener = new NotificationListener(orders, mapper,
-            VALIDATORS.getValidator(), mail, "petstore@localhost");
+            VALIDATORS.getValidator(), mail, "petstore@localhost", messages());
+
+    private static org.springframework.context.MessageSource messages() {
+        var source = new org.springframework.context.support.ResourceBundleMessageSource();
+        source.setBasename("messages");
+        source.setDefaultEncoding("UTF-8");
+        source.setFallbackToSystemLocale(false);
+        return source;
+    }
+
+    @ParameterizedTest
+    @EnumSource(NotificationType.class)
+    void localizesEachNotificationFromOrderSnapshot(NotificationType type) {
+        for (String locale : List.of("ja_JP", "zh-CN", "unsupported")) {
+            reset(orders, mail);
+            when(orders.findById("order-1")).thenReturn(Optional.of(order(OrderStatus.COMPLETED, locale)));
+            listener.receive(json(type));
+            var sent = ArgumentCaptor.forClass(SimpleMailMessage.class);
+            verify(mail).send(sent.capture());
+            var message = sent.getValue();
+            assertTrue(message.getSubject().contains("order-1"));
+            assertTrue(message.getText().contains("order-1"));
+            assertTrue(message.getSubject().contains(locale.equals("ja_JP") ? (type == NotificationType.ORDER_SHIPPED ? "商品発送" : "注文") : locale.equals("zh-CN") ? "订单" : "Order"));
+            assertTrue(message.getText().toLowerCase(java.util.Locale.ROOT).contains(locale.equals("ja_JP") ? "注文" : locale.equals("zh-CN") ? "订单" : "order"));
+            verify(orders).findById("order-1");
+            verifyNoMoreInteractions(orders);
+        }
+    }
 
     @AfterAll
     static void closeValidators() { VALIDATORS.close(); }
@@ -141,10 +168,35 @@ class NotificationTests {
                 type == NotificationType.ORDER_SHIPPED || type == NotificationType.ORDER_COMPLETED ? "pass-1" : null));
     }
 
-    private Order order(OrderStatus status) {
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {" "})
+    void missingEmailSnapshotDoesNotSendOrWrite(String email) {
+        var source = order(OrderStatus.APPROVED);
+        var missing = new Order(source.id(), source.customerId(), source.username(), email, source.createdAt(),
+                source.locale(), source.status(), source.billingInfo(), source.shippingInfo(), source.payment(),
+                source.lineItems(), source.totalPrice(), source.fulfilmentEventIds(), source.version());
+        when(orders.findById("order-1")).thenReturn(Optional.of(missing));
+        assertDoesNotThrow(() -> listener.receive(json(NotificationType.ORDER_APPROVED)));
+        verify(orders).findById("order-1");
+        verifyNoMoreInteractions(orders);
+        verifyNoInteractions(mail);
+    }
+    @Test
+    void malformedTypesAndScalarMessagesDoNotReachMailOrRepository() {
+        for (String json : new String[] {null, "", "[]", "true", "1",
+                "{\"notificationId\":\"n\",\"orderId\":\"o\",\"notificationType\":\"UNKNOWN\"}",
+                "{\"notificationId\":\"n\",\"orderId\":\"o\",\"notificationType\":null}"})
+            assertDoesNotThrow(() -> listener.receive(json));
+        verifyNoInteractions(orders, mail);
+    }
+
+    private Order order(OrderStatus status) { return order(status, "en-US"); }
+
+    private Order order(OrderStatus status, String locale) {
         var contact = new ContactSnapshot("Private", "Buyer", "billing@example.com", "555", "Private Street",
                 null, "Dublin", null, "D01", "IE");
-        return new Order("order-1", "customer", "user", "snapshot@example.com", Instant.EPOCH, "en-US",
+        return new Order("order-1", "customer", "user", "snapshot@example.com", Instant.EPOCH, locale,
                 status, contact, contact, new PaymentSnapshot("VISA", "9876"), List.of(), BigDecimal.ONE,
                 List.of("pass-1"), 1L);
     }

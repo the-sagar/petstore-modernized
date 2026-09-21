@@ -1,5 +1,7 @@
 package com.mdb.petstore.cart.api;
 
+import java.util.Locale;
+
 import com.mdb.petstore.cart.dto.AddCartItemRequest;
 import com.mdb.petstore.cart.dto.CartResponse;
 import com.mdb.petstore.cart.dto.UpdateCartItemRequest;
@@ -14,7 +16,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -28,26 +29,26 @@ public class CartController {
     }
 
     @GetMapping
-    public CartResponse getCart(@RequestParam(defaultValue = "en-US") String locale) {
-        return cartService.getCart(locale);
+    public CartResponse getCart(Locale locale) {
+        return cartService.getCart(locale.toLanguageTag());
     }
 
     @PostMapping("/items")
     public CartResponse addItem(@Valid @RequestBody AddCartItemRequest request,
-            @RequestParam(defaultValue = "en-US") String locale) {
-        return cartService.addItem(request.itemId(), locale);
+            Locale locale) {
+        return cartService.addItem(request.itemId(), locale.toLanguageTag());
     }
 
     @PutMapping("/items/{itemId}")
     public CartResponse updateItemQuantity(@PathVariable String itemId,
             @Valid @RequestBody UpdateCartItemRequest request,
-            @RequestParam(defaultValue = "en-US") String locale) {
-        return cartService.updateItemQuantity(itemId, request.quantity(), locale);
+            Locale locale) {
+        return cartService.updateItemQuantity(itemId, request.quantity(), locale.toLanguageTag());
     }
 
     @DeleteMapping("/items/{itemId}")
     public CartResponse removeItem(@PathVariable String itemId,
-            @RequestParam(defaultValue = "en-US") String locale) {
-        return cartService.removeItem(itemId, locale);
+            Locale locale) {
+        return cartService.removeItem(itemId, locale.toLanguageTag());
     }
 }

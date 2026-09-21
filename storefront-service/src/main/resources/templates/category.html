@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html lang="en-US" th:lang="${effectiveLocale}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="_csrf" th:content="${_csrf.token}">
     <meta name="_csrf_header" th:content="${_csrf.headerName}">
-    <title>Category · Petstore</title>
+    <title th:text="#{category.title.pageTitle}">Category · Petstore</title>
     <link rel="stylesheet" href="/css/petstore.css" th:href="@{/css/petstore.css}">
     <script defer src="/assets/storefront.js" th:src="@{/assets/storefront.js}"></script>
 </head>
@@ -13,18 +13,18 @@
 <header th:replace="~{fragments/storefront :: navigation}"></header>
 <main class="storefront">
     <section class="panel">
-        <a href="/shop" data-locale-link>All categories</a>
-        <h1 id="category-name">Category</h1>
+        <a href="/shop" data-locale-link th:text="#{category.all}">All categories</a>
+        <h1 id="category-name" th:text="#{category.title}">Category</h1>
         <p id="category-description"></p>
-<p id="message" class="message" role="status" aria-live="polite">Loading…</p>
+<p id="message" class="message" role="status" aria-live="polite" th:text="#{common.loading}">Loading…</p>
         <div id="products" class="cards"></div>
-        <nav id="catalog-pagination" class="actions" aria-label="Catalog pagination" hidden>
-            <button id="catalog-previous" type="button" disabled>Previous</button>
+        <nav id="catalog-pagination" class="actions" aria-label="Catalog pagination" th:aria-label="#{common.pagination}" hidden>
+            <button id="catalog-previous" type="button" disabled th:text="#{common.previous}">Previous</button>
             <span id="catalog-page" role="status" aria-live="polite"></span>
-            <button id="catalog-next" type="button" disabled>Next</button>
+            <button id="catalog-next" type="button" disabled th:text="#{common.next}">Next</button>
         </nav>
     </section>
-    <noscript><p class="message">Please enable JavaScript to browse and shop.</p></noscript>
+    <noscript><p class="message" th:text="#{common.enableJs}">Please enable JavaScript to browse and shop.</p></noscript>
 </main>
 </body>
 </html>

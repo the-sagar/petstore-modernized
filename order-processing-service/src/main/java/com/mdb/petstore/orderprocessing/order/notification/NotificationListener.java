@@ -23,14 +23,17 @@ public class NotificationListener {
     private final Validator validator;
     private final JavaMailSender mail;
     private final String from;
+    private final org.springframework.context.MessageSource messages;
 
     public NotificationListener(OrderRepository orders, ObjectMapper mapper, Validator validator,
-            JavaMailSender mail, @Value("${petstore.notification.from}") String from) {
+            JavaMailSender mail, @Value("${petstore.notification.from}") String from,
+            org.springframework.context.MessageSource messages) {
         this.orders = orders;
         this.mapper = mapper;
         this.validator = validator;
         this.mail = mail;
         this.from = from;
+        this.messages = messages;
     }
 
     @JmsListener(destination = "${petstore.notification.requested-destination}")
@@ -57,18 +60,18 @@ public class NotificationListener {
             log.warn("Notification shipment receipt unavailable orderId={} type={}", order.id(), event.notificationType());
             return;
         }
-        String subject = switch (event.notificationType()) {
-            case ORDER_APPROVED, ORDER_DENIED -> "Java Pet Store Order Status: " + order.id();
-            case ORDER_SHIPPED -> "Java Pet Store Order Shipped: " + order.id();
-            case ORDER_COMPLETED -> "Java Pet Store Order COMPLETED: " + order.id();
+        java.util.Locale locale = emailLocale(order.locale());
+        String subjectKey = switch (event.notificationType()) {
+            case ORDER_APPROVED, ORDER_DENIED -> "mail.status.subject";
+            case ORDER_SHIPPED -> "mail.shipped.subject";
+            case ORDER_COMPLETED -> "mail.completed.subject";
         };
-        String body = switch (event.notificationType()) {
-            case ORDER_APPROVED -> "Order " + order.id() + " has been APPROVED.";
-            case ORDER_DENIED -> "Order " + order.id() + " has been DENIED.";
-            case ORDER_SHIPPED -> "Items from order " + order.id() + " have shipped."
-                    + (event.shipmentEventId() == null ? "" : " Shipment pass: " + event.shipmentEventId() + ".");
-            case ORDER_COMPLETED -> "Fulfilment of order " + order.id() + " is complete.";
-        };
+        String subject = messages.getMessage(subjectKey, new Object[]{order.id()}, locale);
+        String body = messages.getMessage("mail." + event.notificationType().name() + ".body",
+                new Object[]{order.id()}, locale);
+        if (event.notificationType() == NotificationType.ORDER_SHIPPED && event.shipmentEventId() != null) {
+            body += messages.getMessage("mail.shipmentPass", new Object[]{event.shipmentEventId()}, locale);
+        }
         var message = new SimpleMailMessage();
         message.setFrom(from);
         message.setTo(order.email());
@@ -82,5 +85,14 @@ public class NotificationListener {
             // delivery is best-effort and never mutates order/inventory state.
             log.warn("Notification email delivery failed orderId={} type={}", order.id(), event.notificationType());
         }
+    }
+
+    private static java.util.Locale emailLocale(String value) {
+        String tag = value == null ? "" : value.strip().replace('_', '-');
+        return switch (tag.toLowerCase(java.util.Locale.ROOT)) {
+            case "ja-jp" -> java.util.Locale.JAPAN;
+            case "zh-cn" -> java.util.Locale.SIMPLIFIED_CHINESE;
+            default -> java.util.Locale.US;
+        };
     }
 }

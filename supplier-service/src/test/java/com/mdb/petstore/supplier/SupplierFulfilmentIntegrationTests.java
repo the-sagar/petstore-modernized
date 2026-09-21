@@ -226,6 +226,54 @@ class SupplierFulfilmentIntegrationTests {
                 .andExpect(status().isNotFound());
         mvc.perform(post("/api/inventory/retry-pending")).andExpect(status().isOk());
     }
+    @Test
+    void exactStockAcrossRepeatedItemLinesAndRepeatedRetriesNeverOversells() {
+        inventoryService.setQuantity("EST-1", 3);
+        request("same-item", line(1, "EST-1", 2), line(2, "EST-1", 2));
+        assertEquals(1, stock("EST-1"));
+        assertEquals(1, orders.findById("same-item").orElseThrow().shipments().size());
+        service.retryPending();
+        assertEquals(1, stock("EST-1"));
+        inventoryService.setQuantity("EST-1", 2);
+        assertEquals(0, stock("EST-1"));
+        assertEquals(SupplierOrder.Status.COMPLETED, orders.findById("same-item").orElseThrow().status());
+        service.retryPending();
+        request("same-item", line(1, "EST-1", 2), line(2, "EST-1", 2));
+        assertEquals(2, orders.findById("same-item").orElseThrow().shipments().size());
+        verify(publisher, times(2)).publish(eq("same-item"), any());
+    }
+    @Test
+    void nullScalarAndNestedInvalidRequestsCreateNoSupplierOrder() {
+        for (String json : new String[] {null, "", "null", "[]", "true", "1",
+                "{\"orderId\":\"bad\",\"lines\":[null]}",
+                "{\"orderId\":\"bad\",\"lines\":[{\"lineNumber\":1,\"itemId\":\"EST-1\",\"quantity\":2147483648}]}"})
+            assertDoesNotThrow(() -> listener.receive(json));
+        assertEquals(0, orders.count());
+        assertEquals(10000, stock("EST-1"));
+        verifyNoInteractions(publisher);
+    }
+    @Test
+    void inventoryIntegerBoundaryIsExactAndOverflowRejected() throws Exception {
+        mvc.perform(put("/api/inventory/EST-1").contentType(MediaType.APPLICATION_JSON).content("{\"quantity\":2147483647}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.quantity").value(Integer.MAX_VALUE));
+        mvc.perform(put("/api/inventory/EST-1").contentType(MediaType.APPLICATION_JSON).content("{\"quantity\":2147483648}"))
+                .andExpect(status().isBadRequest());
+        assertEquals(Integer.MAX_VALUE, stock("EST-1"));
+    }
+
+    @Test
+    void optimisticConflictRollsBackBeforeRetryingAllocation() {
+        doThrow(new org.springframework.dao.OptimisticLockingFailureException("Simulated competing save"))
+                .doAnswer(mockingDetails(orders).getMockCreationSettings().getDefaultAnswer())
+                .when(orders).save(any(SupplierOrder.class));
+        request("retry-conflict", line(1, "EST-1", 2));
+        assertEquals(9998, stock("EST-1"));
+        var order = orders.findById("retry-conflict").orElseThrow();
+        assertEquals(SupplierOrder.Status.COMPLETED, order.status());
+        assertEquals(1, order.shipments().size());
+        verify(publisher).publish(eq("retry-conflict"), any());
+    }
+
     private int stock(String id) { return inventory.findById(id).orElseThrow().quantity(); }
     private InventoryRequested.Line line(int number, String id, int quantity) { return new InventoryRequested.Line(number, id, quantity); }
     private void request(String id, InventoryRequested.Line... lines) {

@@ -1,4 +1,4 @@
-# Account / Customer / Authentication
+# Account and authentication
 
 ## Verified legacy baseline
 
@@ -10,21 +10,21 @@ A confirmed registration defect forwarded the original successful POST to `custo
 
 ## Implemented ownership and persistence
 
-All account/authentication functionality lives in `storefront-service`, using `petstore_storefront`.
+The Storefront Service owns account and authentication functionality in `petstore_storefront`.
 
 | Collection | Contents |
 |---|---|
 | `users` | Normalized unique username, BCrypt `passwordHash`, roles, enabled flag, `customerId`, timestamps |
 | `customers` | Embedded account/contact/address/credit-card fields and profile, plus timestamps |
 
-`User.customerId` links identity to the customer aggregate by ID, without DBRef. This is a deliberate two-aggregate split, not seven collections and not a combined credentials/customer document. Other services do not read these repositories.
+`User.customerId` links identity to the customer aggregate by ID, without DBRef. This separates authentication from the customer aggregate while embedding customer-owned data. Other services do not read these repositories.
 
 ## Registration — implemented
 
-`POST /api/auth/register` validates required fields and email, then `RegistrationService`:
+`POST /api/auth/register` validates required fields and email syntax. `RegistrationService` then:
 
 1. Trims and lowercases the username using `Locale.ROOT`.
-2. Checks username availability; a unique Mongo index also enforces it.
+2. Checks username availability; a unique MongoDB index also enforces it.
 3. Builds and saves the embedded customer aggregate.
 4. Hashes the password through Spring Security's `PasswordEncoder`/BCrypt and saves the linked user.
 5. Commits both writes under `@Transactional` and `MongoTransactionManager`.
@@ -46,7 +46,7 @@ Authentication uses an HTTP session, not a JWT. Session-fixation protection reta
 | `GET /account` | Renders the account page; anonymous users are redirected to login |
 | `POST /api/auth/logout` | Requires authentication and CSRF; returns 204, clears the security context, invalidates the session, and deletes the session cookie |
 
-Ownership resolution is authenticated principal → normalized username → `User.customerId` → `Customer`. Neither GET nor PUT accepts a caller-selected customer ID. Account responses do not expose password hashes or the saved card number.
+Ownership resolution is authenticated principal → normalized username → `User.customerId` → `Customer`. Neither GET nor PUT accepts a caller-selected customer ID. Account responses do not expose password hashes or the `cardNumber` field.
 
 Logout also ends the session-scoped cart. There is no durable cart persistence or cross-service session sharing.
 
@@ -54,13 +54,13 @@ Logout also ends the session-scoped cart. There is no durable cart persistence o
 
 CSRF remains enabled for account PUT, cart writes, checkout POST, Admin/Supplier mutations, and logout POST. Registration and login are explicitly exempted by the existing configuration. Thymeleaf pages read the request's CSRF token/header and include them on protected JavaScript mutations.
 
-Required contact/address fields and email syntax are validated. Country and state/province remain independent text fields: country-aware semantic validation is **not implemented**. The expiry field is not backed by dynamic expiry-range validation.
+Required contact/address fields and email syntax are validated. Country and state/province remain independent text fields: country-aware semantic validation is **not implemented**. The expiry field has no current-date semantic validation.
 
 ## Payment storage hardening — implemented
 
-The customer account stores only `cardType`, `last4`, and `expiryDate`. Registration/account requests accept a number transiently, validate its format and derive last4. Blank account input preserves existing last4; nonblank input replaces it. The page displays the saved type and last four digits while keeping the number input empty. Registration permits missing payment metadata, but checkout requires usable saved display information.
+The customer account stores only `cardType`, `last4`, and `expiryDate`. Registration/account requests accept a number transiently, validate its format and derive last4. Blank account input preserves existing last4; nonblank input replaces it. Account displays a saved payment method with card type, a presentation-only mask such as `•••• •••• •••• 1111`, and expiry when present. The password-type replacement input remains blank on load and is cleared after a successful save; the summary refreshes from the safe response. Missing last4 produces a no-saved-payment-method state. No full number is placed in summary text or accessibility attributes. Registration permits missing payment metadata, but checkout requires usable saved display information.
 
-Checkout reads stored `cardType` and `last4` directly. A startup Mongo migration derives last4 from valid legacy numbers and unsets cardNumber atomically per document. No full number is persisted by current code or sent to Order Processing. This demo performs no payment authorization/tokenization and claims no PCI compliance.
+Checkout reads stored `cardType` and `last4` directly. A startup MongoDB migration derives last4 from valid legacy numbers and unsets cardNumber atomically per document. No full number is persisted by current code or sent to Order Processing. The application performs no payment authorization or tokenization and makes no PCI-compliance claim.
 
 ## Evidence and scope
 
@@ -71,3 +71,11 @@ Messaging is not part of this synchronous slice. See [order processing](07-order
 ## Operational roles
 
 Storefront protects `/admin/**` and `/api/admin/**` with ROLE_ADMIN, and `/supplier/**` and `/api/supplier/**` with ROLE_SUPPLIER. ADMIN alone does not grant Supplier access. Registration creates CUSTOMER only. Bootstrap creates enabled BCrypt-backed operational users without Customer records and leaves existing usernames unchanged. Local defaults and environment overrides are documented in [setup](08-installation-and-setup.md#environment-and-demo-accounts).
+
+## Language preference and legacy profile scope
+
+The customer Storefront supports en-US, ja-JP and zh-CN. Locale precedence is explicit `locale` query → persisted `Profile.languagePreference` → session → en-US. Underscore variants normalize to hyphenated tags; unsupported or blank values fall back to English. Registration with an omitted preference uses the current effective locale; Account explicitly saves the selected preference. CUSTOMER login applies the persisted preference to the session. ADMIN/SUPPLIER users have no Customer document and bypass that lookup.
+
+The selector refreshes server-rendered messages and preserves explicit locale in customer navigation/API URLs. It changes display/session locale without silently saving the profile. If a subsequent authenticated request omits `locale`, the persisted preference takes precedence over session locale.
+
+The legacy profile had `preferredLanguage`, `favoriteCategory`, `myListPreference` and `bannerPreference`. The modern profile has `languagePreference`, `bannerPreference` and `linkPreference`. No verified equivalence between `linkPreference` and legacy My List is claimed. Favorite Category, My List, favorite-category banners and remember-username behavior remain deferred.

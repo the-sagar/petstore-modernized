@@ -241,6 +241,21 @@ class CheckoutIntegrationTests {
     }
 
     @Test
+    void checkoutWithoutQueryUsesPersistedCustomerLocale() throws Exception {
+        var customer = customers.findById(user.getCustomerId()).orElseThrow();
+        customer.getProfile().setLanguagePreference("ja-JP");
+        customers.save(customer);
+        putItem("EST-1", 2);
+        server.expect(requestTo("http://order.test/api/orders")).andExpect(request -> {
+            var outbound = mapper.readValue(((MockClientHttpRequest) request).getBodyAsString(), CreateOrderRequest.class);
+            assertEquals("ja-JP", outbound.locale());
+            assertEquals(new BigDecimal("1951"), outbound.lineItems().getFirst().unitPrice());
+        }).andRespond(created("3902"));
+        mvc.perform(post("/api/checkout").session(session).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content(REQUEST)).andExpect(status().isCreated());
+    }
+
+    @Test
     void preservesEst15JapaneseFallback() throws Exception {
         putItem("EST-15", 2);
         server.expect(requestTo("http://order.test/api/orders")).andExpect(request -> {
@@ -314,6 +329,14 @@ class CheckoutIntegrationTests {
         mvc.perform(checkout("en-US").content(REQUEST.replace("billing@example.com", "invalid")))
                 .andExpect(status().isBadRequest());
         assertEquals(original, cart());
+    }
+
+    @Test
+    void missingAndConflictingDownstreamResponsesPreserveCart() throws Exception {
+        for (HttpStatus status : List.of(HttpStatus.NOT_FOUND, HttpStatus.CONFLICT)) {
+            failedCheckout(withStatus(status).body("Remote private details"));
+            server.reset();
+        }
     }
 
     private void failedCheckout(ResponseCreator response) throws Exception {

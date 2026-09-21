@@ -1,5 +1,7 @@
 package com.mdb.petstore.checkout.api;
 
+import java.util.Locale;
+
 import java.security.Principal;
 
 import com.mdb.petstore.checkout.dto.CheckoutRequest;
@@ -11,7 +13,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -26,8 +27,8 @@ public class CheckoutController {
 
     @PostMapping
     public ResponseEntity<OrderResponse> checkout(Principal principal, @Valid @RequestBody CheckoutRequest request,
-            @RequestParam(defaultValue = "en-US") String locale) {
+            Locale locale) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(checkoutService.checkout(principal.getName(), request, locale));
+                .body(checkoutService.checkout(principal.getName(), request, locale.toLanguageTag()));
     }
 }

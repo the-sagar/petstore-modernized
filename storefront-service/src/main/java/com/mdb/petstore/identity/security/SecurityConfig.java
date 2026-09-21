@@ -5,6 +5,7 @@ import java.util.Locale;
 import java.util.stream.Collectors;
 
 import com.mdb.petstore.identity.dto.LoginResponse;
+import com.mdb.petstore.web.i18n.CustomerLocaleResolver;
 
 import jakarta.servlet.http.HttpServletResponse;
 import tools.jackson.databind.ObjectMapper;
@@ -36,11 +37,13 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
             MongoUserDetailsService userDetailsService, PasswordEncoder passwordEncoder,
-            ObjectMapper objectMapper) throws Exception {
+            ObjectMapper objectMapper, CustomerLocaleResolver localeResolver) throws Exception {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
         provider.setPasswordEncoder(passwordEncoder);
         http.authenticationProvider(provider);
         http.authorizeHttpRequests(authorize -> authorize
+                // Preserve controller error statuses without opening direct requests to /error.
+                .dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ERROR).permitAll()
                 .requestMatchers("/supplier", "/supplier/**", "/api/supplier", "/api/supplier/**").hasRole("SUPPLIER")
                 .requestMatchers("/admin", "/admin/**", "/api/admin", "/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/cart", "/api/cart/**").permitAll()
@@ -69,6 +72,7 @@ public class SecurityConfig {
                 .usernameParameter("username")
                 .passwordParameter("password")
                 .successHandler((request, response, authentication) -> {
+                    localeResolver.applyLoginPreference(request, response, authentication);
                     Set<String> roles = authentication.getAuthorities().stream()
                             .map(GrantedAuthority::getAuthority)
                             .filter(authority -> authority.startsWith("ROLE_"))

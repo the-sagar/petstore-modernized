@@ -44,12 +44,44 @@ class StorefrontPageIntegrationTests {
     @Autowired private MockMvc mvc;
     @Autowired private RegistrationService registration;
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"en-US,Item detail,Price", "ja-JP,商品詳細,価格", "zh-CN,商品详情,价格"})
+    void itemDetailPageIsPublicAndLocalized(String locale, String title, String price) throws Exception {
+        mvc.perform(get("/shop/items/EST-1").param("locale", locale))
+                .andExpect(status().isOk()).andExpect(view().name("item"))
+                .andExpect(content().string(containsString("data-page=\"item\"")))
+                .andExpect(content().string(containsString("lang=\"" + locale + "\"")))
+                .andExpect(content().string(containsString(title)))
+                .andExpect(content().string(containsString(price)))
+                .andExpect(content().string(containsString("id=\"item-content\" hidden")))
+                .andExpect(content().string(containsString("href=\"/shop\" data-locale-link")))
+                .andExpect(content().string(containsString("href=\"/cart\" data-locale-link")));
+        mvc.perform(get("/api/catalog/items/MISSING").param("locale", locale))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void legacyArtworkIsNotServedButImageMetadataIsRetained() throws Exception {
+        var resources = new org.springframework.core.io.support.PathMatchingResourcePatternResolver()
+                .getResources("classpath*:/static/assets/images/catalog/*");
+        assertEquals(0, resources.length);
+        var catalog = new org.springframework.core.io.ClassPathResource("legacy/catalog.xml");
+        String xml = new String(catalog.getContentAsByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+        var filenames = Pattern.compile("<Image>([^<]+)</Image>").matcher(xml).results()
+                .map(match -> match.group(1)).distinct().toList();
+        assertEquals(20, filenames.size());
+        assertTrue(filenames.contains("fish1.jpg"));
+        for (String filename : filenames) {
+            mvc.perform(get("/assets/images/catalog/" + filename)).andExpect(status().isNotFound());
+        }
+    }
+
     @Test
     void catalogPagesExposeAccessibleInitiallyDisabledPagination() throws Exception {
         for (String path : new String[] {"/shop", "/shop/categories/FISH", "/shop/products/FI-SW-01"}) {
             mvc.perform(get(path).param("locale", "ja-JP").param("page", "1").param("q", "fish"))
                     .andExpect(status().isOk())
-                    .andExpect(content().string(containsString("aria-label=\"Catalog pagination\"")))
+                    .andExpect(content().string(containsString("aria-label=\"カタログのページ切替\"")))
                     .andExpect(content().string(containsString("id=\"catalog-previous\" type=\"button\" disabled")))
                     .andExpect(content().string(containsString("id=\"catalog-next\" type=\"button\" disabled")))
                     .andExpect(content().string(containsString("id=\"catalog-page\" role=\"status\"")));
@@ -125,7 +157,7 @@ class StorefrontPageIntegrationTests {
     @Test
     void scriptAndExistingAuthNavigationArePublic() throws Exception {
         mvc.perform(get("/assets/storefront.js")).andExpect(status().isOk())
-                .andExpect(content().string(containsString("Order processing is temporarily unavailable. Your cart has been kept.")));
+                .andExpect(content().string(containsString("t('js.unavailable')")));
         for (String path : new String[] {"/login", "/register"}) {
             mvc.perform(get(path)).andExpect(status().isOk())
                     .andExpect(content().string(containsString("href=\"/shop\"")))

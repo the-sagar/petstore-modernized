@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html lang="en-US" th:lang="${effectiveLocale}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Create an account · Petstore</title>
+    <title th:text="#{login.create.pageTitle}">Create an account · Petstore</title>
     <link rel="stylesheet" th:href="@{/css/petstore.css}" href="/css/petstore.css">
     <script defer src="/assets/storefront.js" th:src="@{/assets/storefront.js}"></script>
 </head>
@@ -11,51 +11,55 @@
 <header th:replace="~{fragments/storefront :: navigation}"></header>
 <main>
     <section class="panel">
-        <h1>Create your account</h1>
-        <p>Keep your contact details and preferences in one place.</p>
-        <p class="hint">Fields marked * are required.</p>
+        <h1 th:text="#{register.heading}">Create your account</h1>
+        <p th:text="#{register.intro}">Keep your contact details and preferences in one place.</p>
+        <p class="hint" th:text="#{form.required}">Fields marked * are required.</p>
         <p id="message" class="message" role="status" aria-live="polite"></p>
         <form id="register-form" method="post" th:action="@{/api/auth/register}">
-            <fieldset><legend>Sign-in details</legend><div class="grid">
-                <label>Username * <input name="username" autocomplete="username" required></label>
-                <label>Password * <input name="password" type="password" autocomplete="new-password" required></label>
+            <fieldset><legend th:text="#{form.signin}">Sign-in details</legend><div class="grid">
+                <label><span th:text="#{form.username}">Username *</span> <input name="username" autocomplete="username" required></label>
+                <label><span th:text="#{form.password}">Password *</span> <input name="password" type="password" autocomplete="new-password" required></label>
             </div></fieldset>
-            <fieldset><legend>Contact details</legend>
+            <fieldset><legend th:text="#{form.contact}">Contact details</legend>
                 <div class="grid">
-                    <label>First name * <input name="firstName" type="text" autocomplete="given-name" required></label>
-                    <label>Last name * <input name="lastName" type="text" autocomplete="family-name" required></label>
-                    <label>Email * <input name="email" type="email" autocomplete="email" required></label>
-                    <label>Phone <input name="phone" type="tel" autocomplete="tel"></label>
+                    <label><span th:text="#{form.firstName}">First name *</span> <input name="firstName" type="text" autocomplete="given-name" required></label>
+                    <label><span th:text="#{form.lastName}">Last name *</span> <input name="lastName" type="text" autocomplete="family-name" required></label>
+                    <label><span th:text="#{form.email}">Email *</span> <input name="email" type="email" autocomplete="email" required></label>
+                    <label><span th:text="#{form.phone}">Phone</span> <input name="phone" type="tel" autocomplete="tel"></label>
                 </div>
             </fieldset>
-            <fieldset><legend>Address</legend>
+            <fieldset><legend th:text="#{form.address}">Address</legend>
                 <div class="grid">
-                    <label>Street address * <input name="street1" type="text" autocomplete="address-line1" required></label>
-                    <label>Apartment / unit <input name="street2" type="text" autocomplete="address-line2"></label>
-                    <label>City * <input name="city" type="text" autocomplete="address-level2" required></label>
-                    <label>State / province <input name="stateOrProvince" type="text" autocomplete="address-level1"></label>
-                    <label>Postal code * <input name="postalCode" type="text" autocomplete="postal-code" required></label>
-                    <label>Country * <input name="country" type="text" autocomplete="country-name" required></label>
+                    <label><span th:text="#{form.street}">Street address *</span> <input name="street1" type="text" autocomplete="address-line1" required></label>
+                    <label><span th:text="#{form.unit}">Apartment / unit</span> <input name="street2" type="text" autocomplete="address-line2"></label>
+                    <label><span th:text="#{form.city}">City *</span> <input name="city" type="text" autocomplete="address-level2" required></label>
+                    <label><span th:text="#{form.state}">State / province</span> <input name="stateOrProvince" type="text" autocomplete="address-level1"></label>
+                    <label><span th:text="#{form.postal}">Postal code *</span> <input name="postalCode" type="text" autocomplete="postal-code" required></label>
+                    <label><span th:text="#{form.country}">Country *</span> <input name="country" type="text" autocomplete="country-name" required></label>
                 </div>
             </fieldset>
-            <fieldset><legend>Payment</legend>
-                <p class="hint">Only card type, last four digits and expiry are saved. This demo does not authorize payments.</p>
+            <fieldset><legend th:text="#{form.payment}">Payment</legend>
+                <p id="registration-card-help" class="hint" th:text="#{form.paymentHint}">The full number is used only to derive the last four digits. Only card type, last four digits and expiry are stored. This demo does not authorize payments.</p>
                 <div class="grid">
-                    <label>Card type <input name="cardType" type="text" autocomplete="cc-type"></label>
-                    <label>Card number <input name="cardNumber" type="password" autocomplete="off" inputmode="numeric"></label>
-                    <label>Expiry date <input name="expiryDate" type="text" autocomplete="cc-exp" placeholder="MM/YYYY"></label>
+                    <label><span th:text="#{form.cardType}">Card type</span> <input name="cardType" type="text" autocomplete="cc-type"></label>
+                    <label><span th:text="#{form.cardNumber}">Card number</span> <input name="cardNumber" type="password" autocomplete="off" inputmode="numeric" aria-describedby="registration-card-help"></label>
+                    <label><span th:text="#{form.expiry}">Expiry date</span> <input name="expiryDate" type="text" autocomplete="cc-exp" placeholder="MM/YYYY" th:placeholder="#{form.expiryFormat}"></label>
                 </div>
             </fieldset>
-            <fieldset><legend>Preferences</legend>
+            <fieldset><legend th:text="#{form.preferences}">Preferences</legend>
                 <div class="grid">
-                    <label>Preferred language <input name="languagePreference" type="text" autocomplete="off"></label>
-                    <label class="check"><input name="bannerPreference" type="checkbox"> Show promotional banners</label>
-                    <label class="check"><input name="linkPreference" type="checkbox"> Show preferred links</label>
+                    <label><span th:text="#{form.language}">Preferred language</span> <select name="languagePreference">
+                        <option value="en-US" th:selected="${effectiveLocale == 'en-US'}">English (US)</option>
+                        <option value="ja-JP" th:selected="${effectiveLocale == 'ja-JP'}">日本語</option>
+                        <option value="zh-CN" th:selected="${effectiveLocale == 'zh-CN'}">中文</option>
+                    </select></label>
+                    <label class="check"><input name="bannerPreference" type="checkbox"> <span th:text="#{form.banner}">Show promotional banners</span></label>
+                    <label class="check"><input name="linkPreference" type="checkbox"> <span th:text="#{form.links}">Show preferred links</span></label>
                 </div>
             </fieldset>
-            <div class="actions"><button type="submit">Create account</button><a th:href="@{/login}" href="/login">Already registered? Sign in</a></div>
+            <div class="actions"><button type="submit" th:text="#{register.submit}">Create account</button><a th:href="@{/login}" href="/login" th:text="#{register.signin}">Already registered? Sign in</a></div>
         </form>
-        <noscript><p>Please enable JavaScript to use this demo.</p></noscript>
+        <noscript><p th:text="#{common.enableDemoJs}">Please enable JavaScript to use this demo.</p></noscript>
     </section>
 </main>
 <script th:inline="javascript">
@@ -68,11 +72,11 @@
         button.disabled = true;
         message.textContent = '';
         const payload = {};
-        for (const input of form.querySelectorAll('input:not([type="hidden"])')) {
+        for (const input of form.querySelectorAll('input:not([type="hidden"]), select')) {
             payload[input.name] = input.type === 'checkbox' ? input.checked : input.value;
         }
         try {
-            const response = await fetch(form.action, {
+            const response = await fetch(window.petstoreUrl(form.action), {
                 method: 'POST', credentials: 'same-origin',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(payload)
@@ -80,17 +84,17 @@
             if (response.status === 201) {
                 form.reset();
                 message.className = 'message success';
-                message.textContent = 'Account created. Redirecting to sign in…';
+                message.textContent = window.petstoreText('js.registered');
                 window.setTimeout(() => window.location.assign(loginUrl), 1000);
                 return;
             }
             message.className = 'message error';
-            message.textContent = response.status === 409 ? 'Username already exists'
-                : response.status === 400 ? 'Please check the required fields, email address and card number format.'
-                : 'Unable to create your account. Please try again.';
+            message.textContent = response.status === 409 ? window.petstoreText('js.usernameExists')
+                : response.status === 400 ? window.petstoreText('js.validation')
+                : window.petstoreText('js.registerFailed');
         } catch {
             message.className = 'message error';
-            message.textContent = 'Unable to connect. Please try again.';
+            message.textContent = window.petstoreText('js.connectRetry');
         }
         button.disabled = false;
     });

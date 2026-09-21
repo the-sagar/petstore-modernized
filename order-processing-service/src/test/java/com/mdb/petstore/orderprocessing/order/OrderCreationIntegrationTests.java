@@ -296,6 +296,15 @@ class OrderCreationIntegrationTests {
         assertTrue(order.lineItems().stream().allMatch(line -> line.quantityShipped() == 0));
     }
 
+    @Test
+    void rejectsNullScalarAndOverflowPayloadsWithoutPersistence() throws Exception {
+        for (String json : new String[] {"null", "[]", "true", "1", "{}", "{",
+                REQUEST.replace("\"quantity\":3", "\"quantity\":2147483648"),
+                REQUEST.replace("\"quantity\":3", "\"quantity\":null"),
+                REQUEST.replace("0.10", "1E+7000"),
+                REQUEST.replace("0.10", "1E-7000")}) rejected(json);
+    }
+
     private void rejected(String body) throws Exception {
         mvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest());

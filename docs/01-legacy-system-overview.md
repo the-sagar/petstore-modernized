@@ -1,10 +1,10 @@
-# Legacy System Overview
+# Legacy system overview
 
 ## Purpose
 
 This document captures the baseline established before modernizing Java Pet Store 1.3.1_02.
 
-The objective of the baseline was to understand how the application actually behaves at runtime before changing frameworks, persistence technology, or deployment architecture.
+The baseline established runtime behavior before changes to frameworks, persistence or deployment architecture.
 
 The analysis combined:
 
@@ -17,7 +17,7 @@ The analysis combined:
 
 ---
 
-## Runtime Reproduction
+## Runtime reproduction
 
 The legacy application was reproduced using its original-era technology stack.
 
@@ -36,7 +36,7 @@ The application was intentionally kept on this stack during analysis so that mod
 
 ---
 
-## Major Functional Areas
+## Major functional areas
 
 ### Storefront
 
@@ -86,7 +86,7 @@ The Admin rich client was run through Java Web Start.
 
 ---
 
-## Functional Baseline
+## Functional baseline
 
 The following behaviors were manually exercised before beginning the target implementation.
 
@@ -104,7 +104,7 @@ The following behaviors were manually exercised before beginning the target impl
 - update account
 - checkout
 
-### Order Approval
+### Order approval
 
 Two distinct behaviors were observed:
 
@@ -113,7 +113,7 @@ Two distinct behaviors were observed:
 
 The approval threshold is treated as legacy behavior to be preserved or explicitly revised during modernization, rather than assumed from UI behavior alone.
 
-### Supplier / Fulfilment
+### Supplier / fulfilment
 
 An out-of-stock scenario was tested:
 
@@ -129,7 +129,7 @@ This confirmed that **approval** and **fulfilment** are distinct business states
 
 ---
 
-## Synchronous and Asynchronous Boundaries
+## Synchronous and asynchronous boundaries
 
 The legacy system uses both synchronous request processing and asynchronous messaging.
 
@@ -149,9 +149,7 @@ EJB
 Cloudscape
 ```
 
-The `Event` objects used by the web application framework are in-process command objects.
-
-They are not JMS messages.
+The web framework uses `Event` objects as in-process commands, not JMS messages.
 
 ### Asynchronous example: Order Processing
 
@@ -185,7 +183,7 @@ This distinction is important to the target design: messaging is used for the ge
 
 ---
 
-## Legacy Persistence Characteristics
+## Legacy persistence characteristics
 
 The account domain is implemented using EJB CMP/CMR-style persistence.
 
@@ -214,15 +212,15 @@ Relevant Cloudscape tables include:
 - `CreditCardEJBTable`
 - `ProfileEJBTable`
 
-Direct database inspection was used to verify the relationships between these records.
+Direct database inspection was used to verify the relationships between these records. The catalog used separate base/detail tables. OPC persisted PurchaseOrders and tracked workflow through ProcessManager, while Supplier maintained inventory and pending fulfilment. These are legacy component/persistence boundaries, not the modern three-database deployment.
 
 The implemented MongoDB models follow logical ownership and access patterns rather than mapping each legacy table to a separate collection. The legacy observations above remain the historical baseline.
 
 ---
 
-## Deployment Behavior
+## Deployment behavior
 
-The legacy deployment configuration manages CMP tables as part of deployment lifecycle behavior.
+The legacy deployment configuration manages CMP table creation and removal.
 
 During analysis, undeploy/redeploy operations were observed to recreate or reset persisted application data.
 
@@ -230,23 +228,19 @@ This matters when interpreting test results because redeployment is not data-neu
 
 ---
 
-## Optional Legacy Capabilities
+## Optional legacy capabilities
 
-The codebase also contains capabilities that are not part of the default baseline used for this modernization.
+The original distribution contains optional JWSDP/JAX-RPC transport, alternate relational configurations and customer email flags. The alternate transports/deployments are intentionally excluded from the modern implementation; customer email is implemented.
 
-These include:
+**Verified legacy email behavior:** with all three flags enabled, a small approved order produced status notification through `MailOrderApprovalMDB`, shipment notification through `MailInvoiceMDB` after a Supplier invoice, and completion notification through `MailCompletedOrderMDB` after `InvoiceMDB` applied fulfilment. Each email path used `MailQueue` and `MailerMDB`. SMTP failure against the placeholder `mymailserver` was caught without stopping the order workflow. Shipment notifications represented invoice/shipment passes, not only final completion.
 
-- an optional JWSDP / JAX-RPC Web Services deployment variant
-- optional email notification configuration
-- alternate relational database configurations
-
-These optional capabilities were identified but remain outside the completed migration scope.
+**Modern treatment:** identifier-only notification events, Order reload, localized Spring Mail content and best-effort delivery replace the XML/XSLT pipeline. See [order processing](07-order-processing.md).
 
 ---
 
-## Key Modernization Implications
+## Key modernization implications
 
-The baseline produces several concrete design implications:
+The baseline informed these design decisions:
 
 1. Do not reproduce EJB-era layering mechanically in Spring Boot.
 2. Do not model seven account-related tables as seven MongoDB collections by default.
@@ -254,18 +248,27 @@ The baseline produces several concrete design implications:
 4. Preserve asynchronous messaging only for business flows that genuinely require it.
 5. Separate order approval from fulfilment state.
 6. Introduce automated tests around defects discovered during baseline analysis.
-7. Add structured observability so business flow tracing does not require temporary `System.out.println` instrumentation.
-
+7. Add business-event logging so business flow tracing does not require temporary `System.out.println` instrumentation.
 
 ## Modern target mapping
 
 | Verified legacy subsystem | Modern boundary | Implemented behavior |
 |---|---|---|
 | Storefront | `storefront-service` | Account/authentication, catalog/search, cart, checkout and browser UIs |
-| Order Processing Center (OPC) | `order-processing-service` | Order creation, automatic/manual approval, denial and fulfilment progress |
+| Order Processing Center (OPC) | `order-processing-service` | Order creation, automatic/manual approval, denial, fulfilment progress, statistics and customer email |
 | Supplier | `supplier-service` | Inventory, atomic allocation, partial fulfilment, replenishment and shipment history |
-| JMS / EJB MDB boundary | ActiveMQ Artemis + Spring JMS | OrderSubmitted, InventoryRequested and InventoryFulfilled queues |
-| Swing/Web Start Admin | Storefront Admin UI and HTTP proxy | Status filtering and individual approve/deny decisions |
+| JMS / EJB MDB boundary | ActiveMQ Artemis + Spring JMS | OrderSubmitted, InventoryRequested, InventoryFulfilled and NotificationRequested queues |
+| Swing/Web Start Admin | Storefront Admin UI and HTTP proxy | Status filtering, individual approve/deny decisions and date-filtered sales statistics |
 | XML invoices | Typed fulfilment events and shipment-pass history | Records exactly which lines shipped in each pass |
 
 Storefront submits orders synchronously over HTTP to confirm acceptance before clearing the cart. Subsequent approval and fulfilment preserve the asynchronous business boundary. See [current architecture](06-target-architecture.md), [order processing](07-order-processing.md), and [parity gaps](04-functional-parity.md).
+
+## Catalog, profile and reporting evidence
+
+**Legacy facts:** `item.jsp` displayed individual SKU details. Catalog persistence used relational base/detail tables, SQL joins/LIKE and `start`/`count` result-set paging; CatalogHelper defaulted to start 0 and count 2. `CloudscapeCatalogDAO.searchItems` returned Items with effectively ANY-token/OR search. The legacy Storefront did not provide a customer order-history page.
+
+The profile exposed preferred language, favorite category, My List preference and banner preference. `mylist.jsp` used the favorite category, `advice_banner.jsp` selected its promotional banner, and sign-on offered a remember-username cookie. These are separate from authenticated session handling.
+
+`OPCAdminFacadeEJB.getChartInfo` selected PurchaseOrders by order date and grouped their LineItems by category. REVENUE summed quantity × unitPrice; the request called ORDERS summed quantity, not order records. It did not filter workflow status. The Swing client exposed revenue percentage pie and sales-quantity bar views. Optional item-level category aggregation was not an actively exposed client view in the inspected source.
+
+**Modern treatment:** embedded localized MongoDB details, database-side paging, historical catalog image metadata, category placeholders and a dedicated Item Detail page preserve browsing outcomes. Search intentionally returns unique Products requiring ALL tokens, rather than reproducing legacy Item/ANY behavior. Browser Admin statistics preserve all-status category aggregation, not recognized accounting revenue. Favorite Category/My List/banner and remember-username behavior remain deferred; `linkPreference` is not a verified mapping to My List. Old splash/sidebar/footer/chrome is intentionally not recreated.

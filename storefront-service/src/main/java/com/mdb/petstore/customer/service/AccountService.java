@@ -1,6 +1,9 @@
 package com.mdb.petstore.customer.service;
 
 import java.time.Instant;
+
+import com.mdb.petstore.web.i18n.SupportedLocales;
+import org.springframework.context.i18n.LocaleContextHolder;
 import java.util.Locale;
 
 import com.mdb.petstore.customer.dto.AccountResponse;
@@ -62,7 +65,10 @@ public class AccountService {
         card.setExpiryDate(request.getExpiryDate());
 
         var profile = customer.getProfile();
-        profile.setLanguagePreference(request.getLanguagePreference());
+        profile.setLanguagePreference(SupportedLocales.resolve(
+                request.getLanguagePreference() == null
+                        ? LocaleContextHolder.getLocale().toLanguageTag()
+                        : request.getLanguagePreference()).toLanguageTag());
         profile.setBannerPreference(request.isBannerPreference());
         profile.setLinkPreference(request.isLinkPreference());
 
@@ -83,6 +89,13 @@ public class AccountService {
         log.debug("Account identity resolved for username={} customerId={}", username, user.getCustomerId());
         Customer customer = customerRepository.findById(user.getCustomerId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+        // Persisted legacy/incomplete aggregates must not crash reads or be silently rebuilt on update.
+        var account = customer.getAccount();
+        if (account == null || account.getContactInfo() == null || account.getContactInfo().getAddress() == null
+                || account.getCreditCard() == null || customer.getProfile() == null) {
+            log.warn("Customer account information unavailable customerId={}", customer.getId());
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Customer account information unavailable");
+        }
         log.debug("Customer document loaded for customerId={}", customer.getId());
         return customer;
     }
@@ -96,6 +109,6 @@ public class AccountService {
                 contact.getFirstName(), contact.getLastName(), contact.getEmail(), contact.getPhone(),
                 address.getStreet1(), address.getStreet2(), address.getCity(), address.getStateOrProvince(),
                 address.getPostalCode(), address.getCountry(), card.getCardType(), card.getLast4(), card.getExpiryDate(),
-                profile.getLanguagePreference(), profile.isBannerPreference(), profile.isLinkPreference());
+                SupportedLocales.resolve(profile.getLanguagePreference()).toLanguageTag(), profile.isBannerPreference(), profile.isLinkPreference());
     }
 }

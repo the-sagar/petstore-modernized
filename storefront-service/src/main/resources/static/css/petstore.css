@@ -110,3 +110,13 @@ td button { display: block; width: 100%; white-space: nowrap; padding: 8px 12px;
 .chart-color-5 { --category-color: #748545; }
 .chart-color-6 { --category-color: #4f8b83; }
 .chart-color-7 { --category-color: #976e45; }
+
+.saved-card { background: #f5f8f6; border: 1px solid #d9e1db; border-radius: 8px; padding: 20px; margin-bottom: 20px; max-width: 360px; }
+.saved-card h3 { margin: 0 0 16px; font-size: 1rem; }
+.saved-card p { margin: 8px 0; }
+.saved-card-type { font-weight: 600; }
+.saved-card-number { font-size: 1.2rem; letter-spacing: .08em; overflow-wrap: anywhere; }
+.saved-card-expiry { color: #576b62; font-size: .9rem; }
+
+.catalog-image { height: 120px; display: flex; align-items: center; justify-content: center; background: #f5f8f6; border-radius: 6px; margin-bottom: 16px; overflow: hidden; }
+.catalog-symbol { font-size: 2.5rem; line-height: 1; color: #576b62; }

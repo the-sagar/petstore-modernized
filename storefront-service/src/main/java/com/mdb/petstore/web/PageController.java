@@ -30,6 +30,11 @@ public class PageController {
         return "product";
     }
 
+    @GetMapping("/shop/items/{itemId}")
+    public String item() {
+        return "item";
+    }
+
     @GetMapping("/cart")
     public String cart() {
         return "cart";

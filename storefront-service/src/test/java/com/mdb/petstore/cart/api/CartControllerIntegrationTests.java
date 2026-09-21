@@ -171,7 +171,9 @@ class CartControllerIntegrationTests {
         assertEquals("日本产的淡水鱼", chinese.description());
         assertMoney("142", chinese.unitPrice());
         assertMoney("284", chinese.lineTotal());
-        var english = response(get("/api/cart").session(session)).items().getFirst();
+        // An omitted locale retains the anonymous session's explicit display choice.
+        assertEquals(chinese, response(get("/api/cart").session(session)).items().getFirst());
+        var english = response(get("/api/cart").session(session).param("locale", "en-US")).items().getFirst();
         assertEquals(2, english.quantity());
         assertEquals("Angelfish", english.productName());
         assertMoney("33.00", english.lineTotal());

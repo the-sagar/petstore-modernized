@@ -104,7 +104,7 @@ class RegistrationServiceIntegrationTests {
         assertEquals(request.getExpiryDate(), card.getExpiryDate());
 
         var profile = customer.getProfile();
-        assertEquals(request.getLanguagePreference(), profile.getLanguagePreference());
+        assertEquals("en-US", profile.getLanguagePreference());
         assertEquals(request.isBannerPreference(), profile.isBannerPreference());
         assertEquals(request.isLinkPreference(), profile.isLinkPreference());
 

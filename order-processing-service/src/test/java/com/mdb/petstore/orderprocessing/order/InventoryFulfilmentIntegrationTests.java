@@ -177,6 +177,19 @@ class InventoryFulfilmentIntegrationTests {
         assertEquals(List.of("complete"), reload().fulfilmentEventIds());
     }
 
+    @Test
+    void nullScalarAndNestedInvalidMessagesLeaveApprovedOrderUntouched() {
+        var before = order(OrderStatus.APPROVED);
+        for (String json : new String[] {null, "", "null", "[]", "true", "1", "{}",
+                "{\"eventId\":\"e\",\"orderId\":\"order-1\",\"shippedLines\":[null]}",
+                "{\"eventId\":\"e\",\"orderId\":\"order-1\",\"shippedLines\":[{\"lineNumber\":1,\"itemId\":\"EST-1\",\"quantity\":2147483648}]}",
+                "{\"eventId\":\"e\",\"orderId\":\"order-1\",\"shippedLines\":[{\"lineNumber\":1,\"itemId\":\"EST-1\",\"quantity\":-1}]}"}) {
+            assertDoesNotThrow(() -> listener.receive(json));
+            assertEquals(before, reload());
+        }
+        verifyNoInteractions(jms);
+    }
+
     private void assertNotifications(String... expected) {
         var messages = org.mockito.ArgumentCaptor.forClass(String.class);
         verify(jms, times(expected.length)).convertAndSend(eq("petstore.notification.requested"), messages.capture());

@@ -1,63 +1,119 @@
 # Current target architecture
 
-## Principles and service boundaries
+## Service boundaries
 
-Migration was incremental and strangler-style: verify a legacy vertical slice, preserve its business outcome, replace obsolete mechanisms, then test before proceeding. This is a migration approach, not a claim of a deployed legacy/modern routing gateway.
+Migration proceeded through bounded vertical slices: verify legacy behavior, preserve or explicitly revise the outcome, replace obsolete mechanisms, then test. This describes the migration approach, not a deployed legacy/modern routing gateway.
 
-Three deployables follow meaningful legacy Storefront / OPC / Supplier boundaries. Features within a service are packages, not additional microservices. There are no shared Mongo entities, cross-service repository calls or service-to-service Maven dependencies. Each service owns its DTOs and database.
+There are three independently deployable services, with no shared MongoDB entities, cross-service repository access or service-to-service Maven dependencies. Each service owns its contracts and database.
 
 | Service | Responsibilities | Database |
-|---|---|---|
-| Storefront :8080 | Identity, account, catalog, session cart, checkout, customer/Admin/Supplier browser UI and operational HTTP proxies | `petstore_storefront` |
-| Order Processing :8081 | Order snapshots, total calculation, approval/denial and fulfilment lifecycle | `petstore_orders` |
-| Supplier :8082 | Inventory, allocation, pending fulfilments, shipment history and replenishment | `petstore_supplier` |
+| --- | --- | --- |
+| Storefront Service :8080 | Identity, Customer aggregate, localized catalog/UI, search/pagination, session cart, checkout and Admin/Supplier HTTP proxies | `petstore_storefront` |
+| Order Processing Service :8081 | Order snapshots, approval/denial, fulfilment progress, Admin statistics and customer email notifications | `petstore_orders` |
+| Supplier Service :8082 | Inventory, allocation, pending fulfilments, shipment-pass history and replenishment | `petstore_supplier` |
 
-## Implemented communication
+## Canonical current-state architecture
 
 ```mermaid
-flowchart LR
-    C[Customer browser] --> S[Storefront :8080]
-    A[Admin browser] --> S
-    U[Supplier browser] --> S
-    S -->|HTTP checkout and Admin API| O[Order Processing :8081]
-    S -->|HTTP inventory and fulfilment API| P[Supplier :8082]
-    O -->|OrderSubmitted and InventoryRequested| J[Artemis :61616]
-    J -->|OrderSubmitted| O
-    J -->|InventoryRequested| P
-    P -->|InventoryFulfilled| J
-    J -->|InventoryFulfilled| O
+flowchart TB
+    C["Customer browser"] --> S
+    A["Admin browser"] --> S
+    U["Supplier browser"] --> S
+    S["Storefront Service :8080<br/>Customer UI, Account, catalog and cart<br/>Checkout and operational HTTP proxies"]
     S --> SD[(petstore_storefront)]
+    S -->|"HTTP: order creation, Admin orders and statistics"| O
+    S -->|"HTTP: inventory, fulfilment and retry"| P
+
+    subgraph OP["Order Processing Service :8081"]
+        O["Order creation and Admin order APIs<br/>Automatic/manual approval and denial<br/>Fulfilment lifecycle<br/>Admin statistics aggregation"]
+        N["Notification listener"]
+        M["Spring Mail"]
+        N --> M
+    end
     O --> OD[(petstore_orders)]
+    N -->|"Reload authoritative Order"| OD
+
+    subgraph SUP["Supplier Service :8082"]
+        P["Inventory and allocation<br/>Partial fulfilment and shipment history<br/>Replenishment and retry"]
+    end
     P --> PD[(petstore_supplier)]
+
+    subgraph MQ["ActiveMQ Artemis :61616"]
+        QO["petstore.order.submitted"]
+        QR["petstore.inventory.requested"]
+        QF["petstore.inventory.fulfilled"]
+        QN["petstore.notification.requested"]
+    end
+    O --> QO
+    QO --> O
+    O --> QR
+    QR --> P
+    P --> QF
+    QF --> O
+    O --> QN
+    QN --> N
+    M -->|"SMTP: configured endpoint"| SMTP["SMTP server<br/>Local development: Mailpit<br/>SMTP :1025, UI :8025"]
 ```
 
-Browsers interact only with Storefront. RestClient provides synchronous acknowledgement for checkout and operational requests, with configurable URLs and timeouts. ROLE_ADMIN and ROLE_SUPPLIER protect their respective Storefront pages/proxies; CSRF protects mutations. Backend operational APIs are internal and do not yet have service-to-service authentication/TLS.
+Browser application requests enter only through Storefront. Storefront never directly reads the Order Processing or Supplier MongoDB databases; each service owns its DTOs and persistence. HTTP serves synchronous acknowledgement-oriented interactions; Artemis carries asynchronous workflow events. Mailpit supplies local SMTP; production SMTP is configured separately. RestClient handles checkout acknowledgement and operational API calls. ROLE_ADMIN and ROLE_SUPPLIER protect separate Storefront pages/proxies; ADMIN does not imply SUPPLIER. CSRF protects mutations, with the existing login/registration exemptions. Backend APIs have no service-to-service authentication/TLS yet and must not be treated as publicly secured APIs.
 
-JMS queues are `petstore.order.submitted`, `petstore.inventory.requested`, and `petstore.inventory.fulfilled`. Messages contain only workflow identifiers and required fulfilment quantities, never customer contacts or payment data. Spring JMS transacted listener sessions acknowledge successful processing; thrown failures use broker redelivery semantics. There is no custom DLQ tooling.
+| Artemis queue | Payload and consumer |
+| --- | --- |
+| `petstore.order.submitted` | Order ID; Order Processing reloads the Order for automatic approval |
+| `petstore.inventory.requested` | Order ID and line/item IDs with requested quantities; Supplier owns allocation |
+| `petstore.inventory.fulfilled` | Event/order IDs, shipped line quantities and completion hint; Order Processing derives status from cumulative quantities |
+| `petstore.notification.requested` | Notification/order IDs, type and optional shipment event ID; Order Processing reloads Order for recipient, locale and content |
 
-## Data and transaction boundaries
+Messages contain no customer contact, address or payment data. Spring JMS listeners use transacted sessions; thrown processing failures can trigger broker redelivery. SMTP failures are caught and acknowledged at the notification boundary. There is no custom dead-letter management interface or exactly-once guarantee.
 
-Storefront owns `users`, `customers`, `categories`, `products`, and `items`. Localized catalog details are embedded; session carts store IDs/quantities rather than persisted snapshots. Registration commits users/customers in one Mongo transaction. Catalog seed data excludes legacy users/payment details.
+## Legacy persistence to MongoDB aggregates
 
-Order Processing owns `orders`: immutable order-time identity/contact/line/payment snapshots plus mutable workflow progress. BigDecimal money is stored as Decimal128. Supplier owns `inventory` and `supplierOrders`, including shipment-pass history. Supplier commits conditional inventory decrements and fulfilment progress/history in a local Mongo transaction. None of these transactions spans services or JMS.
+This was **not** a mechanical “one relational table → one MongoDB collection” migration. Embedding, references and separate collections were selected using aggregate ownership, lifecycle, read/write access patterns, service boundaries and concurrency requirements.
 
-## Idempotency and concurrent work
+| Legacy concept | Modern MongoDB representation | Design rationale |
+| --- | --- | --- |
+| User / sign-on identity | Storefront `users`, linked by `customerId` | Authentication credentials/roles have a separate lifecycle and security concern; operational users need no Customer document |
+| Customer / Account / Profile / ContactInfo / Address / CreditCard CMP relationships | Storefront `customers` embeds `account.contactInfo.address`, `account.creditCard` display metadata and `profile` | Customer-owned 1:1 data is read/updated with its aggregate. Only cardType, last4 and expiry metadata remain; raw PAN is not embedded |
+| Category / CategoryDetails | Storefront `categories.details[]` | Localized details are bounded, parent-owned and normally read with Category |
+| Product / ProductDetails | Storefront `products.details[]`, retaining `categoryId` | Localized details share Product lifecycle; the ID reference preserves category lookup without copying Category |
+| Item / ItemDetails | Storefront `items.details[]`, retaining `productId` and `categoryId` | Locale-specific descriptions, attributes and prices belong to Item; references support direct lookup and cross-aggregate queries |
+| PurchaseOrder / LineItem relationship or join table / ProcessManager workflow status | Order Processing `orders`: identity/contact snapshot, payment display snapshot, `lineItems[]`, `totalPrice`, `status`, `fulfilmentEventIds` and version | Lines and workflow state belong to Order. Embedding removes the relationship table. Order-time data is a historical snapshot, not a live Customer reference |
+| InventoryEJB / inventory table | Supplier `inventory`, one document per itemId | Inventory belongs to Supplier, changes frequently and independently, and needs conditional atomic stock operations. It is not embedded in Storefront Catalog |
+| SupplierOrder / Supplier LineItems / relationship table | Supplier `supplierOrders.lines[]` and `shipments[]`, with status/version | Progress and shipment history share SupplierOrder ownership. Supplier receives fulfilment IDs/quantities, not a duplicate customer/payment model |
+| Invoice XML integration document | Typed `InventoryFulfilled` event plus persisted Supplier shipment history | The invoice's fulfilment/integration role is preserved without inventing a financial billing aggregate or `invoices` collection |
 
-- Atomic PENDING-only approval/denial lets one concurrent decision win. Automatic and manual approval reuse `OrderApprovalService`; only its successful transition publishes inventory work.
-- Supplier order ID uniqueness and persisted line progress prevent duplicate requests from allocating shipped lines twice. Conditional quantity checks prevent overselling; transactional/version conflicts retry only aborted work.
-- Each shipment pass has a stable event ID. Order Processing persists processed IDs with shipped quantities and uses optimistic concurrency to prevent duplicate fulfilment application.
-- Status is derived from cumulative line progress. PENDING/DENIED orders cannot be completed by inappropriate inventory messages.
+Embedding removes owned relationship tables; it does not eliminate every join. Catalog search deliberately uses `$lookup` to include descriptions from the separate Item collection. Money remains BigDecimal/Decimal128. No service reads another service's repositories, and no cross-service domain-model Maven dependency exists.
 
-## Failure boundaries and known gaps
+Registration commits User and Customer writes in one MongoDB transaction. Catalog seeding validates and inserts only the catalog data, excluding legacy users/payment data. Supplier commits conditional stock decrements and shipment progress/history in a local MongoDB transaction. None of these transactions spans services or JMS.
 
-Storefront clears the cart only after validating a downstream 201 response. Timeouts, connection failures, invalid responses and downstream errors preserve it. An acknowledgement can be lost after persistence, so checkout retry can create another order; request-level idempotency is not implemented.
+### Catalog search and paging
 
-Mongo writes precede JMS publication. A send failure leaves the committed PENDING order, APPROVED decision, or Supplier shipment intact. There is no transactional outbox. Failed publication needs replay/reconciliation; repeating Supplier allocation does not resend an already recorded shipment automatically. Duplicate-safe consumption is not an exactly-once guarantee. See [order processing](07-order-processing.md).
+Product-by-category and Item-by-product lists use Spring Data Pageable with ascending ID order, supported by `categoryId + _id` and `productId + _id` compound indexes. APIs expose a typed `CatalogPage`, default size 2, zero-based page and size bounds 1–20. Root categories remain unpaginated.
 
-Storefront stores payment display metadata only and migrates away legacy raw numbers. Orders receive card type/last4 only. There is no payment authorization or PCI-compliance claim.
+Search starts with Products, uses `$lookup` for Items, `$set` for independently resolved localized details/text, `$match` for all normalized tokens, and `$facet` for total count and sorted `$skip`/`$limit` page data. Matching is case-insensitive literal substring search, with escaped tokens. Requested locale → en-US → first detail is resolved for each Product and each Item independently. Search intentionally returns Products with ALL-token matching, differing from legacy Item/ANY-token search.
 
-## Local versus production infrastructure
+Filtering/paging run in MongoDB without loading all Products/Items into Java. Ordinary indexes do not optimize arbitrary contains matching. Atlas Search could support production relevance/fuzzy/multilingual search, but it is not implemented or required.
 
-One MongoDB 7 container hosts three logical databases in a single-node `rs0` replica set, enabling local transactions. One Artemis 2.57.0 broker uses a persistent volume and a 128–256 MB configured heap. Neither setup demonstrates production HA.
+Catalog image metadata is preserved. Storefront uses local category-specific symbols or neutral fallbacks with localized accessible labels, without making image requests. `/shop/items/{itemId}` uses the existing Item API, localized details and listPrice. Presentation does not alter catalog persistence.
 
-Separate clusters could be deployed later without changing ownership. Service authentication/TLS, production secrets, HA deployments, outbox/reconciliation and recovery operations remain hardening work. See [installation](08-installation-and-setup.md) and [functional verification](09-functional-verification.md).
+### Admin statistics
+
+Order Processing aggregates `petstore_orders.orders` through `$match` on `createdAt`, `$unwind` of `lineItems`, and `$group` by category, followed by projection/sort. Revenue sums quantity × Decimal128 unitPrice; units sum quantity. Storefront proxies `/api/admin/statistics` and renders `/admin/statistics` with a revenue donut/pie and units bars.
+
+ISO date inputs describe inclusive UTC calendar days, queried through the next day's start, exclusive. All workflow statuses contribute, preserving legacy behavior; these statistics are not recognized accounting revenue. No additional statistics collection or cross-service query is used.
+
+## Locale, concurrency and reliability
+
+Customer locale precedence is explicit query → persisted preference → session → en-US, allow-listed to en-US/ja-JP/zh-CN. Checkout snapshots the effective locale. Notifications use Order.locale and the immutable order-time email, independent of later Account edits. Operational consoles remain English.
+
+Atomic PENDING-only approval/denial allows one concurrent decision to win. Supplier's unique order ID, original-line comparison, conditional quantity decrement and persisted progress prevent duplicate allocation. Its versioned transactions retry aborted conflicts, not JMS sends or unknown commit outcomes. Order Processing applies each fulfilment event with a version/status predicate and `$addToSet` receipt in the same atomic update as quantities/status. Duplicate events do not intentionally generate another shipment notification.
+
+Storefront clears its cart only after a valid downstream 201. Failure retains the cart, but a lost acknowledgement after Order persistence can produce duplicate orders on retry: there is no request-level idempotency key.
+
+MongoDB writes and JMS publication are not atomic. Committed PENDING orders, approvals or Supplier shipments can require replay/reconciliation after publication failure. Email publication/delivery is best-effort; a lost publication can omit email, while redelivery or a crash after SMTP acceptance can duplicate it. There is no outbox, distributed transaction or automatic reconciliation. See [order processing](07-order-processing.md).
+
+## Local infrastructure and production work
+
+Compose uses `mongo:7.0` with single-node `rs0`, `apache/artemis:2.57.0-alpine` with a persistent volume and 128–256 MB configured heap, and `axllent/mailpit:v1.27.8`. Mailpit is a local SMTP sink on 1025 with UI on 8025; notifications are enabled by default and externally configurable. Neither local MongoDB nor Artemis is a production HA deployment.
+
+Production work includes an outbox/reconciliation strategy, checkout idempotency, backend service authentication/TLS, secrets management, backup/recovery procedures, monitoring and HA deployments. Payment remains display metadata only, without authorization/tokenization or PCI certification. See [setup](08-installation-and-setup.md) and [functional verification](09-functional-verification.md).

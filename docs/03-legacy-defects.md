@@ -1,4 +1,4 @@
-# Legacy Defects and Risks
+# Legacy defects and risks
 
 ## Purpose
 
@@ -6,8 +6,7 @@ This document records defects and modernization risks discovered during executio
 
 Findings are based on observed runtime behavior, source inspection, temporary instrumentation, and direct Cloudscape queries.
 
-The intention is not to catalog every defect in the legacy codebase. It is to identify concrete examples that should influence migration design and regression testing.
-
+Not every modernization difference is a legacy defect. Relational decomposition and optional deployment variants are design characteristics whose migration risks must be evaluated separately. The findings guide migration design and regression testing; they are not an exhaustive defect catalog.
 
 ## Modernization status
 
@@ -16,12 +15,12 @@ The intention is not to catalog every defect in the legacy codebase. It is to id
 | Duplicate registration through POST forwarding | Corrected | Single transactional registration operation, unique username index, deterministic conflict response |
 | Invalid stateful EJB after failure | Intentionally not reproduced | Stateless services; session contains security state and a small ID/quantity cart |
 | Card type/expiry mapping mismatch | Corrected | Explicit named field mapping and account/registration tests |
-| Country/state inconsistency | Still outstanding | Required fields/email validation exists; no country-aware region validation |
+| Country/state inconsistency | Still outstanding | Required-field and email validation exists; no country-aware region validation |
 | Historical expiry choices | Partially corrected | Historical dropdown removed; free-text expiry remains without dynamic expiry validation |
 | Direct password comparison | Corrected | Spring Security and BCrypt password hashes |
-| Fragmented customer persistence | Corrected | Embedded customer aggregate plus separate linked user, registered in one Mongo transaction |
+| Fragmented customer persistence | Modernized design | Embedded customer aggregate plus separate linked user, registered in one MongoDB transaction |
 | Limited observability | Improved for implemented slices | SLF4J business-event logs; approval, inventory and fulfilment events include business identifiers |
-| Deployment resets data | Intentionally not reproduced | Persistent Mongo volume; catalog seeding skips existing data rather than resetting it |
+| Deployment resets data | Intentionally not reproduced | Persistent MongoDB volume; catalog seeding skips existing data rather than resetting it |
 | Hard-coded checkout payment | Corrected | Payment display data comes from the authenticated customer's account; no hard-coded card sent to orders |
 | Raw Storefront card persistence | Corrected | Display metadata only; startup migration removes legacy cardNumber fields. No payment authorization/tokenization is implemented |
 
@@ -29,7 +28,7 @@ The intention is not to catalog every defect in the legacy codebase. It is to id
 
 ---
 
-## Finding 1 — Duplicate Customer Creation After Registration
+## Finding 1 — Duplicate customer creation after registration
 
 ### Observed behavior
 
@@ -45,7 +44,7 @@ A registration request can:
 8. fail on duplicate primary key
 9. return HTTP 500
 
-Observed failure includes:
+The observed failure included:
 
 ```text
 javax.ejb.DuplicateKeyException: Duplicate primary key
@@ -59,6 +58,10 @@ An internal forward reuses the same request rather than creating a new browser r
 
 Because `customer.do` interprets `action=create`, the second route invocation replays a create command that has already succeeded.
 
+### Risk
+
+A successful write can appear to fail, inviting retries and leaving the customer unable to continue reliably.
+
 ### Modernization treatment
 
 - one registration operation per request
@@ -69,7 +72,7 @@ Because `customer.do` interprets `action=create`, the second route invocation re
 
 ---
 
-## Finding 2 — Stateful EJB Invalid After Transaction Failure
+## Finding 2 — Stateful EJB invalid after transaction failure
 
 ### Observed behavior
 
@@ -96,7 +99,7 @@ A failure can therefore affect subsequent requests in the same user session.
 
 ---
 
-## Finding 3 — Credit-Card Type and Expiry Mapping Defect
+## Finding 3 — Card type and expiry mapping defect
 
 ### Observed database state
 
@@ -108,7 +111,7 @@ cardType   = [expiry-like value]
 expiryDate = [card-type label]
 ```
 
-The values in the type and expiry fields are reversed.
+The values in the type and expiry fields are reversed, making saved payment display metadata unreliable.
 
 ### Root cause
 
@@ -135,11 +138,11 @@ Because all three parameters are strings, the compiler cannot distinguish the se
 
 ---
 
-## Finding 4 — Country / State Inconsistency
+## Finding 4 — Country/state inconsistency
 
 ### Observed behavior
 
-Country and State / Province are independent inputs.
+Country and state/province are independent inputs.
 
 The UI can therefore represent combinations that do not make semantic sense.
 
@@ -151,7 +154,7 @@ The modern forms use free-text country and region fields with required-field/ema
 
 ---
 
-## Finding 5 — Obsolete Hard-Coded Expiry Values
+## Finding 5 — Obsolete hard-coded expiry values
 
 Some legacy account / payment forms contain hard-coded historical expiry-year choices.
 
@@ -165,7 +168,7 @@ The historical dropdown is not reproduced. Modern forms accept free-text expiry 
 
 ---
 
-## Finding 6 — Legacy Password Handling
+## Finding 6 — Legacy password handling
 
 The legacy sign-on code performs direct password comparison.
 
@@ -175,13 +178,13 @@ Modern applications should not persist user passwords in a form that can be dire
 
 ### Modernization treatment
 
-Implemented: Spring Security's `PasswordEncoder` abstraction with BCrypt.
+The modern implementation uses Spring Security's `PasswordEncoder` abstraction with BCrypt.
 
 The domain/application service should not contain custom password hashing logic.
 
 ---
 
-## Finding 7 — Fragmented Customer Persistence
+## Finding 7 — Fragmented customer persistence
 
 One logical customer spans:
 
@@ -206,11 +209,11 @@ This increases:
 
 ### Modernization treatment
 
-Model the customer according to aggregate ownership and access patterns in MongoDB rather than reproducing each legacy table as a separate collection.
+The Customer aggregate embeds owned account/profile/contact/address/payment metadata, while User remains separate. Registration commits both in one MongoDB transaction. This is a data-model choice, not evidence that relational normalization itself was defective.
 
 ---
 
-## Finding 8 — Limited Success-Path Observability
+## Finding 8 — Limited success-path observability
 
 Important flows were difficult to reconstruct from the default logs.
 
@@ -228,13 +231,13 @@ Temporary instrumentation was added to trace:
 
 ### Modernization treatment
 
-Introduce structured logs around business transitions and include stable identifiers such as order ID where appropriate.
+Implemented SLF4J business-event logs cover authentication, catalog paging, order decisions, fulfilment, statistics and notification outcomes. Stable order/event IDs support correlation. Production monitoring, alerting and recovery procedures remain outstanding.
 
 Do not log secrets, raw passwords, or full payment-card data.
 
 ---
 
-## Finding 9 — Deployment Can Reset Persistence State
+## Finding 9 — Deployment can reset persistence state
 
 Legacy deployment configuration manages CMP table lifecycle.
 
@@ -246,25 +249,23 @@ A deployment operation can change test data, making runtime investigation harder
 
 ### Modernization treatment
 
-Separate application deployment from database lifecycle.
-
-Schema/index creation and demo data should be explicit and repeatable.
+Normal service restarts and `docker compose down` preserve MongoDB/Artemis named volumes. Catalog seeding skips existing catalog data and inventory seeding preserves stock. Destructive `docker compose down -v` still deliberately removes local data and requires replica-set initialization again. These local safeguards are not a production backup/recovery strategy.
 
 ---
 
-## Finding 10 — Hard-Coded / Unsafe Checkout Payment
+## Finding 10 — Hard-coded checkout payment
 
 Targeted legacy source inspection confirmed that the Storefront constructed an order using a hard-coded card rather than the current customer's payment information.
 
 **Corrected:** modern checkout derives display information from the authenticated customer's saved account. Order Processing accepts/persists only `cardType` and four-digit `last4`, rejecting raw payment fields. It does not perform payment authorization.
 
-## Corrected — Raw Storefront card storage
+## Payment-data risk — legacy and early modernization storage
 
-Storefront now persists only card type, last4 and expiry metadata. Full numbers are transient write-only input; a startup Mongo migration removes legacy cardNumber fields. Blank account input preserves last4. This removes raw-number persistence from current customer documents; it is not tokenization or payment authorization. Historical backups are not rewritten. No PCI-compliance claim is made.
+Raw-number storage exposed sensitive payment data without being necessary for this application’s display-only checkout. **Corrected in the modern implementation:** Storefront now persists only card type, last4 and expiry metadata. Full numbers are transient write-only input; a startup MongoDB migration removes legacy cardNumber fields. Blank Account replacement input preserves last4; the UI shows a masked saved method and clears replacement input after save. This removes raw-number persistence from current customer documents; it is not tokenization or payment authorization. Historical backups are not rewritten. No PCI-compliance claim is made.
 
 ---
 
-## Patterns to Watch in Other Flows
+## Patterns to watch in other flows
 
 The confirmed defects suggest several risk patterns that may recur elsewhere:
 

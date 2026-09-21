@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html lang="en-US" th:lang="${effectiveLocale}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Sign in · Petstore</title>
+    <title th:text="#{login.title.pageTitle}">Sign in · Petstore</title>
     <link rel="stylesheet" th:href="@{/css/petstore.css}" href="/css/petstore.css">
     <script defer src="/assets/storefront.js" th:src="@{/assets/storefront.js}"></script>
 </head>
@@ -11,16 +11,16 @@
 <header th:replace="~{fragments/storefront :: navigation}"></header>
 <main class="narrow">
     <section class="panel">
-        <h1>Welcome back</h1>
-        <p>Sign in to checkout or manage your account.</p>
+        <h1 th:text="#{login.heading}">Welcome back</h1>
+        <p th:text="#{login.intro}">Sign in to checkout or manage your account.</p>
         <p id="message" class="message" role="status" aria-live="polite"></p>
         <form id="login-form" method="post" th:action="@{/api/auth/login}" class="stack">
-            <label>Username <input name="username" autocomplete="username" required autofocus></label>
-            <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
-            <button type="submit">Sign in</button>
-            <a th:href="@{/register}" href="/register">Create an account</a>
+            <label><span th:text="#{login.username}">Username</span> <input name="username" autocomplete="username" required autofocus></label>
+            <label><span th:text="#{login.password}">Password</span> <input name="password" type="password" autocomplete="current-password" required></label>
+            <button type="submit" th:text="#{login.title}">Sign in</button>
+            <a th:href="@{/register}" href="/register" th:text="#{login.create}">Create an account</a>
         </form>
-        <noscript><p>Please enable JavaScript to use this demo.</p></noscript>
+        <noscript><p th:text="#{common.enableDemoJs}">Please enable JavaScript to use this demo.</p></noscript>
     </section>
 </main>
 <script th:inline="javascript">
@@ -35,7 +35,7 @@
         button.disabled = true;
         message.textContent = '';
         try {
-            const response = await fetch(form.action, {
+            const response = await fetch(window.petstoreUrl(form.action), {
                 method: 'POST', credentials: 'same-origin',
                 body: new URLSearchParams(new FormData(form))
             });
@@ -53,11 +53,11 @@
             } else {
                 message.className = 'message error';
                 message.textContent = response.status === 401
-                    ? 'Invalid username or password' : 'Unable to sign in. Please try again.';
+                    ? window.petstoreText('js.invalidLogin') : window.petstoreText('js.loginFailed');
             }
         } catch {
             message.className = 'message error';
-            message.textContent = 'Unable to connect. Please try again.';
+            message.textContent = window.petstoreText('js.connectRetry');
         } finally {
             button.disabled = false;
         }

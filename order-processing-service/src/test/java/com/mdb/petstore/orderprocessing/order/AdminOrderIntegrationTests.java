@@ -154,6 +154,16 @@ class AdminOrderIntegrationTests {
         assertEquals(409, assertThrows(ResponseStatusException.class, () -> service.approve("failed-send")).getStatusCode().value());
         verify(publisher, times(1)).publish(any());
     }
+    @Test
+    void concurrentDenialsNotifyExactlyOneWinningTransition() throws Exception {
+        save("race", OrderStatus.PENDING, Instant.now());
+        assertEquals(List.of(200, 409), race(false, false));
+        assertEquals(OrderStatus.DENIED, orders.findById("race").orElseThrow().status());
+        verify(notifications).publish("race", NotificationType.ORDER_DENIED, null);
+        verifyNoMoreInteractions(notifications);
+        verifyNoInteractions(publisher);
+    }
+
     private List<Integer> race(boolean a, boolean b) throws Exception {
         var start = new CountDownLatch(1);
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {

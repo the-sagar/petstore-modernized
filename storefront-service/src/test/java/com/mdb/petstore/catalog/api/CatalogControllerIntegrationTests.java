@@ -259,9 +259,9 @@ class CatalogControllerIntegrationTests {
         var product = mongo.findById("FI-SW-01", com.mdb.petstore.catalog.model.Product.class);
         String original = product.getDetails().getFirst().getDescription();
         try {
-            product.getDetails().getFirst().setDescription("literal . * [ ( \\E $ne");
+            product.getDetails().getFirst().setDescription("literal . * [ ( ) ? + \\E $ne");
             mongo.save(product);
-            for (String token : new String[] {".", "*", "[", "(", "\\E", "$ne"}) {
+            for (String token : new String[] {".", "*", "[", "(", ")", "?", "+", "\\E", "$ne"}) {
                 mockMvc.perform(get("/api/catalog/search").param("q", "angelfish " + token))
                         .andExpect(status().isOk()).andExpect(jsonPath("$.content[*].id", contains("FI-SW-01")))
                         .andExpect(jsonPath("$.totalElements").value(1));

@@ -1,5 +1,7 @@
 package com.mdb.petstore.catalog.api;
 
+import java.util.Locale;
+
 import java.util.List;
 
 import com.mdb.petstore.catalog.dto.CatalogPage;
@@ -25,46 +27,46 @@ public class CatalogController {
     }
 
     @GetMapping("/categories")
-    public List<CategoryResponse> getCategories(@RequestParam(defaultValue = "en-US") String locale) {
-        return catalogService.getCategories(locale);
+    public List<CategoryResponse> getCategories(Locale locale) {
+        return catalogService.getCategories(locale.toLanguageTag());
     }
 
     @GetMapping("/categories/{categoryId}")
     public CategoryResponse getCategory(@PathVariable String categoryId,
-            @RequestParam(defaultValue = "en-US") String locale) {
-        return catalogService.getCategory(categoryId, locale);
+            Locale locale) {
+        return catalogService.getCategory(categoryId, locale.toLanguageTag());
     }
 
     @GetMapping("/categories/{categoryId}/products")
     public CatalogPage<ProductResponse> getProductsByCategory(@PathVariable String categoryId,
-            @RequestParam(defaultValue = "en-US") String locale,
+            Locale locale,
             @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "2") int size) {
-        return catalogService.getProductsByCategory(categoryId, locale, page, size);
+        return catalogService.getProductsByCategory(categoryId, locale.toLanguageTag(), page, size);
     }
 
     @GetMapping("/products/{productId}")
     public ProductResponse getProduct(@PathVariable String productId,
-            @RequestParam(defaultValue = "en-US") String locale) {
-        return catalogService.getProduct(productId, locale);
+            Locale locale) {
+        return catalogService.getProduct(productId, locale.toLanguageTag());
     }
 
     @GetMapping("/products/{productId}/items")
     public CatalogPage<ItemResponse> getItemsByProduct(@PathVariable String productId,
-            @RequestParam(defaultValue = "en-US") String locale,
+            Locale locale,
             @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "2") int size) {
-        return catalogService.getItemsByProduct(productId, locale, page, size);
+        return catalogService.getItemsByProduct(productId, locale.toLanguageTag(), page, size);
     }
 
     @GetMapping("/items/{itemId}")
     public ItemResponse getItem(@PathVariable String itemId,
-            @RequestParam(defaultValue = "en-US") String locale) {
-        return catalogService.getItem(itemId, locale);
+            Locale locale) {
+        return catalogService.getItem(itemId, locale.toLanguageTag());
     }
 
     @GetMapping("/search")
     public CatalogPage<ProductResponse> searchProducts(@RequestParam(defaultValue = "") String q,
-            @RequestParam(defaultValue = "en-US") String locale,
+            Locale locale,
             @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "2") int size) {
-        return catalogService.searchProducts(q, locale, page, size);
+        return catalogService.searchProducts(q, locale.toLanguageTag(), page, size);
     }
 }

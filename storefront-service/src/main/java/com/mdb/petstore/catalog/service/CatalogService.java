@@ -66,6 +66,11 @@ public class CatalogService {
         var pageable = pageable(page, size);
         category(categoryId);
         String language = normalizeLocale(locale);
+        if (pageable.getOffset() > Integer.MAX_VALUE) {
+            var content = productRepository.findPageAtOffset(categoryId, pageable.getOffset(), size);
+            return CatalogPage.of(content.stream().map(value -> productResponse(value, language)).toList(),
+                    page, size, productRepository.countByCategoryId(categoryId));
+        }
         var results = productRepository.findByCategoryId(categoryId, pageable);
         log.debug("Product listing categoryId={} locale={} page={} size={} results={} total={}",
                 categoryId, language, page, size, results.getNumberOfElements(), results.getTotalElements());
@@ -83,6 +88,11 @@ public class CatalogService {
         var pageable = pageable(page, size);
         product(productId);
         String language = normalizeLocale(locale);
+        if (pageable.getOffset() > Integer.MAX_VALUE) {
+            var content = itemRepository.findPageAtOffset(productId, pageable.getOffset(), size);
+            return CatalogPage.of(content.stream().map(value -> itemResponse(value, language)).toList(),
+                    page, size, itemRepository.countByProductId(productId));
+        }
         var results = itemRepository.findByProductId(productId, pageable);
         log.debug("Item listing productId={} locale={} page={} size={} results={} total={}",
                 productId, language, page, size, results.getNumberOfElements(), results.getTotalElements());
